@@ -1,0 +1,81 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Yohuke.DanmuNeo.Views.LyricEditDialogWindow"
+        x:CompileBindings="False"
+        Width="860"
+        Height="560"
+        MinWidth="720"
+        MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Title="修改歌词">
+    <Border Classes="lyricEditDialogPanel">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto"
+              RowSpacing="12">
+            <StackPanel Spacing="4">
+                <TextBlock Text="修改歌词"
+                           FontSize="22"
+                           FontWeight="SemiBold"/>
+                <TextBlock Text="保存后会更新本地歌词库。"
+                           Classes="muted"/>
+            </StackPanel>
+
+            <Grid Grid.Row="1"
+                  ColumnDefinitions="*,*,*"
+                  ColumnSpacing="8">
+                <TextBox Watermark="歌曲名"
+                         Text="{Binding Title}"/>
+                <TextBox Grid.Column="1"
+                         Watermark="歌手"
+                         Text="{Binding Artist}"/>
+                <TextBox Grid.Column="2"
+                         Watermark="专辑"
+                         Text="{Binding Album}"/>
+            </Grid>
+
+            <TextBox Grid.Row="2"
+                     Watermark="标签"
+                     Text="{Binding Tags}"/>
+
+            <Border Grid.Row="3"
+                    Classes="lyricEditError"
+                    IsVisible="{Binding HasError}">
+                <TextBlock Text="{Binding ErrorText}"
+                           TextWrapping="Wrap"/>
+            </Border>
+
+            <Grid Grid.Row="4"
+                  ColumnDefinitions="*,*"
+                  ColumnSpacing="10">
+                <TextBox x:Name="OriginalLyricTextBox"
+                         Watermark="原文歌词"
+                         Text="{Binding LyricText, Mode=OneTime}"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         FontFamily="Menlo, Consolas, Courier New"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                <TextBox Grid.Column="1"
+                         x:Name="TranslatedLyricTextBox"
+                         Watermark="翻译歌词"
+                         Text="{Binding TranslatedLyricText, Mode=OneTime}"
+                         AcceptsReturn="True"
+                         TextWrapping="NoWrap"
+                         FontFamily="Menlo, Consolas, Courier New"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+            </Grid>
+
+            <Grid Grid.Row="5"
+                  ColumnDefinitions="*,Auto,Auto"
+                  ColumnSpacing="8">
+                <Button Grid.Column="1"
+                        Content="取消"
+                        Click="Cancel_OnClick"/>
+                <Button Grid.Column="2"
+                        Classes="primaryButton"
+                        Content="保存"
+                        Click="Save_OnClick"/>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

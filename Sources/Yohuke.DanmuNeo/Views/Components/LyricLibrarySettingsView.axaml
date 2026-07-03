@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:state="clr-namespace:Yohuke.DanmuNeo.Models.State"
+             xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components"
+             x:Class="Yohuke.DanmuNeo.Views.Components.LyricLibrarySettingsView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <StackPanel Spacing="18"
+                IsVisible="{Binding IsLyricLibrarySettingsSelected}">
+        <Border Classes="panel"
+                Padding="14">
+            <components:LyricOnlineImportView/>
+        </Border>
+
+        <Border Classes="panel"
+                Padding="14">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                    <StackPanel>
+                        <TextBlock Text="本地歌词库"
+                                   Classes="sectionTitle"/>
+                        <TextBlock Text="本地导入和音乐 API 拉取过的歌词都会沉淀到这里。"
+                                   Classes="muted"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Command="{Binding SaveCurrentLyricToLibraryCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="Save"/>
+                            <TextBlock Text="保存当前歌词"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+                <components:LyricLibraryListView/>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

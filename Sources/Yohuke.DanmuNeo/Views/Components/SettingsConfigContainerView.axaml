@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components"
+             x:Class="Yohuke.DanmuNeo.Views.Components.SettingsConfigContainerView"
+             x:CompileBindings="False">
+    <ScrollViewer>
+        <Grid>
+            <components:GlobalSettingsView/>
+            <components:AccountSettingsView/>
+            <components:LyricLibrarySettingsView/>
+            <components:MarkSymbolSettingsView/>
+            <components:WorkspaceSettingsView/>
+        </Grid>
+    </ScrollViewer>
+</UserControl>

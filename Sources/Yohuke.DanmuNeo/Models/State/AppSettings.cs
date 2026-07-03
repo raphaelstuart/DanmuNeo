@@ -1,0 +1,84 @@
+namespace Yohuke.DanmuNeo.Models.State;
+
+/// <summary>
+/// 应用全局设置。
+/// </summary>
+public class AppSettings
+{
+    /// <summary>
+    /// 同传开标记。
+    /// </summary>
+    public string TranslateOpenMark { get; set; } = "【";
+
+    /// <summary>
+    /// 同传闭标记。
+    /// </summary>
+    public string TranslateCloseMark { get; set; } = "】";
+
+    /// <summary>
+    /// 歌词开标记。
+    /// </summary>
+    public string LyricOpenMark { get; set; } = "【♪";
+
+    /// <summary>
+    /// 歌词闭标记。
+    /// </summary>
+    public string LyricCloseMark { get; set; } = "】";
+
+    /// <summary>
+    /// 可选符号组。
+    /// </summary>
+    public List<MarkSymbolGroup> MarkGroups { get; set; } = [];
+
+    /// <summary>
+    /// 默认歌词来源。
+    /// </summary>
+    public string DefaultLyricSource { get; set; } = "wy";
+
+    /// <summary>
+    /// 弹幕发送间隔。
+    /// </summary>
+    public int SendIntervalMs { get; set; } = 750;
+
+    /// <summary>
+    /// 请求超时秒数。
+    /// </summary>
+    public double TimeoutSeconds { get; set; } = 3.05;
+
+    /// <summary>
+    /// 是否启用屏蔽词处理。
+    /// </summary>
+    public bool EnableShieldProcessing { get; set; } = true;
+
+    /// <summary>
+    /// 弹幕被屏蔽时是否重发。
+    /// </summary>
+    public bool ResendWhenShielded { get; set; } = true;
+
+    /// <summary>
+    /// QQ 音乐 Cookie。
+    /// </summary>
+    public string QQMusicCookie { get; set; } = "";
+
+    /// <summary>
+    /// QQ 音乐 Cookie 绑定状态。
+    /// </summary>
+    public string QQMusicCookieStatus => string.IsNullOrWhiteSpace(QQMusicCookie) ? "未绑定" : "已绑定";
+
+    /// <summary>
+    /// QQ 音乐 Cookie 摘要。
+    /// </summary>
+    public string QQMusicCookieSummary => string.IsNullOrWhiteSpace(QQMusicCookie)
+        ? "尚未读取 QQ 音乐 Cookie"
+        : $"Cookie 尾段 {QQMusicCookie[^Math.Min(8, QQMusicCookie.Length)..]}";
+
+    /// <summary>
+    /// 配色方案。
+    /// </summary>
+    public AppThemeMode ThemeMode { get; set; } = AppThemeMode.System;
+
+    /// <summary>
+    /// 左侧栏宽度。
+    /// </summary>
+    public double SidebarWidth { get; set; } = 240;
+}

@@ -1,0 +1,55 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:viewModels="clr-namespace:Yohuke.DanmuNeo.ViewModels"
+        xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components"
+        x:Class="Yohuke.DanmuNeo.Views.MainWindow"
+        x:CompileBindings="False"
+        Width="1280"
+        Height="820"
+        MinWidth="980"
+        MinHeight="640"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="42"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="{Binding WindowTitle}">
+
+    <Design.DataContext>
+        <viewModels:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid Classes="rootSurface">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="42"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <components:TitleBarView Grid.Row="0"/>
+
+        <Grid Grid.Row="1"
+              x:Name="MainColumns">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240" MinWidth="200" MaxWidth="360"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <components:WorkspaceSidebarView Grid.Column="0"/>
+
+            <GridSplitter Grid.Column="1" Width="4"
+                          Classes="sidebarSplitter"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          PointerReleased="SidebarSplitter_OnPointerReleased"/>
+
+            <Grid Grid.Column="2"
+                  Margin="16,10,16,16">
+                <components:WorkspaceTabsView/>
+                <components:AddWorkspaceDialogView/>
+                <components:ConfirmDeleteDialogView/>
+            </Grid>
+        </Grid>
+
+        <components:SettingsOverlayView Grid.Row="1"/>
+    </Grid>
+</Window>

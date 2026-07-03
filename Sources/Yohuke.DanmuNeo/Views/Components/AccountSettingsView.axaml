@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:state="clr-namespace:Yohuke.DanmuNeo.Models.State"
+             x:Class="Yohuke.DanmuNeo.Views.Components.AccountSettingsView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <StackPanel Spacing="18"
+                IsVisible="{Binding IsAccountSettingsSelected}">
+        <Border Classes="panel" Padding="14">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                    <StackPanel>
+                        <TextBlock Text="QQ 音乐"
+                                   Classes="sectionTitle"/>
+                        <TextBlock Text="{Binding QQMusicCookieSummary}"
+                                   Classes="muted"/>
+                    </StackPanel>
+	                    <Button Grid.Column="1"
+	                            Click="QQMusicBrowserLogin_OnClick">
+	                        <StackPanel Orientation="Horizontal"
+	                                    Spacing="6">
+	                            <LucideIcon Kind="Globe"/>
+	                            <TextBlock Text="浏览器登录"/>
+	                        </StackPanel>
+	                    </Button>
+                </Grid>
+                <TextBlock Text="{Binding QQMusicCookieStatus}"
+                           Classes="muted"/>
+                <TextBox Watermark="QQ 音乐 Cookie"
+                         PasswordChar="*"
+                         Text="{Binding Settings.QQMusicCookie}"/>
+            </StackPanel>
+        </Border>
+
+        <Border Classes="panel" Padding="14">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="*,Auto,Auto"
+                      ColumnSpacing="8">
+                    <StackPanel>
+                        <TextBlock Text="B 站账号"
+                                   Classes="sectionTitle"/>
+                        <TextBlock Text="绑定状态只显示摘要，完整 Cookie 仍可编辑但默认隐藏。"
+                                   Classes="muted"/>
+                    </StackPanel>
+	                    <Button Grid.Column="1"
+	                            ToolTip.Tip="新增账号"
+	                            Classes="iconButton"
+	                            Command="{Binding AddAccountCommand}">
+	                        <LucideIcon Kind="UserPlus"/>
+	                    </Button>
+	                    <Button Grid.Column="2"
+	                            Click="BilibiliBrowserLogin_OnClick">
+	                        <StackPanel Orientation="Horizontal"
+	                                    Spacing="6">
+	                            <LucideIcon Kind="Globe"/>
+	                            <TextBlock Text="浏览器新增"/>
+	                        </StackPanel>
+	                    </Button>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Accounts}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="state:BilibiliAccount">
+                            <Border BorderBrush="{DynamicResource AppBorderBrush}"
+                                    BorderThickness="0,0,0,1"
+                                    Padding="0,8">
+                                <Grid RowDefinitions="Auto,Auto"
+                                      RowSpacing="8">
+                                    <Grid ColumnDefinitions="160,*,Auto,Auto,Auto"
+                                          ColumnSpacing="8">
+                                        <TextBox Text="{Binding Name}"
+                                                 Watermark="账号名"/>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="2"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CookieStatus}"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding CookieSummary}"
+                                                       Classes="muted"/>
+                                        </StackPanel>
+	                                        <Button Grid.Column="2"
+	                                                ToolTip.Tip="浏览器登录"
+	                                                Classes="iconButton"
+	                                                Click="BilibiliBrowserLogin_OnClick">
+	                                            <LucideIcon Kind="LogIn"/>
+	                                        </Button>
+	                                        <Button Grid.Column="3"
+	                                                ToolTip.Tip="设为默认"
+	                                                Classes="iconButton"
+	                                                Command="{Binding #Root.DataContext.SetDefaultAccountCommand}"
+	                                                CommandParameter="{Binding}">
+	                                            <LucideIcon Kind="BadgeCheck"/>
+	                                        </Button>
+	                                        <Button Grid.Column="4"
+	                                                ToolTip.Tip="删除"
+	                                                Classes="iconButton"
+	                                                Command="{Binding #Root.DataContext.DeleteAccountCommand}"
+	                                                CommandParameter="{Binding}">
+	                                            <LucideIcon Kind="Trash2"/>
+	                                        </Button>
+                                    </Grid>
+                                    <TextBox Grid.Row="1"
+                                             Text="{Binding Cookie}"
+                                             PasswordChar="*"
+                                             Watermark="Cookie"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

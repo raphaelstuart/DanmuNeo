@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:state="clr-namespace:Yohuke.DanmuNeo.Models.State"
+             x:Class="Yohuke.DanmuNeo.Views.Components.LyricOnlineImportView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <StackPanel Spacing="12">
+        <Grid ColumnDefinitions="*,Auto"
+              ColumnSpacing="8">
+            <StackPanel>
+                <TextBlock Text="歌词导入"
+                           Classes="sectionTitle"/>
+                <TextBlock Text="可从本地文件导入，也可以搜索网易云或 QQ 音乐。"
+                           Classes="muted"/>
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Click="ImportLocalLyricFile_OnClick">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6">
+                    <LucideIcon Kind="FileInput"/>
+                    <TextBlock Text="导入本地歌词"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
+              ColumnSpacing="8">
+            <Button Classes="sourceSegmentButton"
+                    Classes.selected="{Binding IsNetEaseMusicLyricSource}"
+                    Command="{Binding SelectNetEaseMusicLyricSourceCommand}">
+                <TextBlock Text="网易云"/>
+            </Button>
+            <Button Grid.Column="1"
+                    Classes="sourceSegmentButton"
+                    Classes.selected="{Binding IsQQMusicLyricSource}"
+                    Command="{Binding SelectQQMusicLyricSourceCommand}">
+                <TextBlock Text="QQ 音乐"/>
+            </Button>
+            <TextBox Grid.Column="2"
+                     Watermark="搜索歌名、歌手或关键词"
+                     Text="{Binding MusicLyricSearchText}"/>
+            <Button Grid.Column="3"
+                    Classes="primaryButton"
+                    Command="{Binding SearchMusicLyricsCommand}">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="6">
+                    <LucideIcon Kind="Search"/>
+                    <TextBlock Text="搜索"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <TextBlock Text="正在搜索..."
+                   Classes="muted"
+                   IsVisible="{Binding IsMusicLyricSearching}"/>
+
+        <ItemsControl ItemsSource="{Binding MusicLyricSearchResults}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="state:MusicLyricSearchResult">
+                    <Border BorderBrush="{DynamicResource AppBorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="0,8">
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="8">
+                            <StackPanel>
+                                <TextBlock Text="{Binding DisplayTitle}"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding Album}"
+                                           Classes="muted"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding SourceLabel}"
+                                           Classes="muted"/>
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Classes="iconButton"
+                                    ToolTip.Tip="导入歌词"
+                                    Command="{Binding #Root.DataContext.ImportMusicLyricCommand}"
+                                    CommandParameter="{Binding}">
+                                <LucideIcon Kind="Download"/>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </StackPanel>
+</UserControl>

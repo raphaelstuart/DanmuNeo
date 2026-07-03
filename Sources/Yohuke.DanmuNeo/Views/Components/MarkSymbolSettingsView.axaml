@@ -1,0 +1,110 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:state="clr-namespace:Yohuke.DanmuNeo.Models.State"
+             x:Class="Yohuke.DanmuNeo.Views.Components.MarkSymbolSettingsView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <StackPanel Spacing="18"
+                IsVisible="{Binding IsMarkSettingsSelected}">
+        <Border Classes="panel" Padding="14">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                    <StackPanel>
+                        <TextBlock Text="标签组"
+                                   Classes="sectionTitle"/>
+                        <TextBlock Text="每个工作区可选择一个标签组，用于同传和歌词发送。"
+                                   Classes="muted"/>
+                    </StackPanel>
+	                    <Button Grid.Column="1"
+	                            Command="{Binding AddSymbolGroupCommand}">
+	                        <StackPanel Orientation="Horizontal"
+	                                    Spacing="6">
+	                            <LucideIcon Kind="FolderPlus"/>
+	                            <TextBlock Text="新增标签组"/>
+	                        </StackPanel>
+	                    </Button>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding SymbolGroups}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="state:MarkSymbolGroup">
+                            <Border Classes="markGroupCard">
+                                <Grid RowDefinitions="Auto,Auto"
+                                      RowSpacing="10">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto"
+                                          ColumnSpacing="8">
+	                                        <Button Classes="iconButton"
+	                                                Command="{Binding #Root.DataContext.ToggleSymbolGroupExpandedCommand}"
+	                                                CommandParameter="{Binding}">
+	                                            <LucideIcon Kind="PanelBottomOpen"/>
+	                                        </Button>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="2">
+                                            <TextBox Text="{Binding Name}"
+                                                     Watermark="标签组名称"/>
+                                        </StackPanel>
+	                                        <Button Grid.Column="2"
+	                                                Classes="iconButton"
+	                                                ToolTip.Tip="上移"
+	                                                Command="{Binding #Root.DataContext.MoveSymbolGroupUpCommand}"
+	                                                CommandParameter="{Binding}">
+	                                            <LucideIcon Kind="SquareArrowUp"/>
+	                                        </Button>
+	                                        <Button Grid.Column="3"
+	                                                Classes="iconButton"
+	                                                ToolTip.Tip="下移"
+	                                                Command="{Binding #Root.DataContext.MoveSymbolGroupDownCommand}"
+	                                                CommandParameter="{Binding}">
+	                                            <LucideIcon Kind="SquareArrowDown"/>
+	                                        </Button>
+	                                        <Button Grid.Column="4"
+	                                                Classes="iconButton"
+	                                                ToolTip.Tip="删除"
+	                                                Command="{Binding #Root.DataContext.DeleteSymbolGroupCommand}"
+	                                                CommandParameter="{Binding}">
+	                                            <LucideIcon Kind="Trash2"/>
+	                                        </Button>
+                                    </Grid>
+
+                                    <Grid Grid.Row="1"
+                                          ColumnDefinitions="*,*,*,*"
+                                          ColumnSpacing="8"
+                                          IsVisible="{Binding IsExpanded}">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="同传文本前自动添加"
+                                                       Classes="muted"/>
+                                            <TextBox Watermark="同传开"
+                                                     Text="{Binding TranslateOpenMark}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1"
+                                                    Spacing="4">
+                                            <TextBlock Text="同传文本后自动添加"
+                                                       Classes="muted"/>
+                                            <TextBox Watermark="同传闭"
+                                                     Text="{Binding TranslateCloseMark}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2"
+                                                    Spacing="4">
+                                            <TextBlock Text="歌词文本前自动添加"
+                                                       Classes="muted"/>
+                                            <TextBox Watermark="歌词开"
+                                                     Text="{Binding LyricOpenMark}"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="3"
+                                                    Spacing="4">
+                                            <TextBlock Text="歌词文本后自动添加"
+                                                       Classes="muted"/>
+                                            <TextBox Watermark="歌词闭"
+                                                     Text="{Binding LyricCloseMark}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

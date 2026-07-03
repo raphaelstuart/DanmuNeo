@@ -1,0 +1,17 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Yohuke.DanmuNeo.App"
+             xmlns:local="using:Yohuke.DanmuNeo"
+             xmlns:danmuNeo="clr-namespace:Yohuke.DanmuNeo"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.DataTemplates>
+        <danmuNeo:ViewLocator/>
+    </Application.DataTemplates>
+  
+	    <Application.Styles>
+	        <FluentTheme />
+	        <StyleInclude Source="avares://Yohuke.DanmuNeo/Views/Styles/MainWindowStyles.axaml"/>
+	    </Application.Styles>
+</Application>

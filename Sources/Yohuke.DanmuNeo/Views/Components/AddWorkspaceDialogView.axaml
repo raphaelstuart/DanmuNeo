@@ -1,0 +1,55 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Yohuke.DanmuNeo.Views.Components.AddWorkspaceDialogView"
+             x:CompileBindings="False">
+    <Border Classes="addDialogOverlay"
+            IsVisible="{Binding IsAddDialogOpen}">
+        <Border Classes="addDialogPanel">
+            <Grid RowDefinitions="Auto,Auto,Auto,Auto"
+                  RowSpacing="14">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="{Binding AddDialogTitle}"
+                               FontSize="26"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding AddDialogDescription}"
+                               Classes="muted"
+                               HorizontalAlignment="Center"
+                               TextWrapping="Wrap"/>
+                </StackPanel>
+
+                <TextBox Grid.Row="1"
+                         Watermark="名称"
+                         Text="{Binding NewWorkspaceName}"
+                         IsVisible="{Binding IsAddingWorkspace}"/>
+
+                <Grid Grid.Row="2"
+                      RowDefinitions="Auto,Auto"
+                      RowSpacing="10"
+                      IsVisible="{Binding IsAddingRoom}">
+                    <TextBox Watermark="直播间名称"
+                             Text="{Binding NewRoomName}"/>
+                    <TextBox Grid.Row="1"
+                             Watermark="直播间 ID"
+                             Text="{Binding NewRoomId}"/>
+                </Grid>
+
+                <Grid Grid.Row="3"
+                      ColumnDefinitions="*,Auto,Auto"
+                      ColumnSpacing="8">
+                    <TextBlock Text="{Binding SelectedWorkspace.Name}"
+                               Classes="muted"
+                               VerticalAlignment="Center"
+                               IsVisible="{Binding IsAddingRoom}"/>
+                    <Button Grid.Column="1"
+                            Content="取消"
+                            Command="{Binding CloseAddDialogCommand}"/>
+                    <Button Grid.Column="2"
+                            Classes="primaryButton"
+                            Content="{Binding AddDialogPrimaryText}"
+                            Command="{Binding ConfirmAddDialogCommand}"/>
+                </Grid>
+            </Grid>
+        </Border>
+    </Border>
+</UserControl>

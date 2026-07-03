@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Yohuke.DanmuNeo.Views.Components.TitleBarView"
+             x:CompileBindings="False">
+    <Grid Classes="titleBar"
+          PointerPressed="TitleBar_OnPointerPressed">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="10"
+                    Margin="14,0,0,0"
+                    VerticalAlignment="Center">
+            <TextBlock Text="夜半同传"
+                       FontWeight="SemiBold"
+                       FontSize="13"/>
+            <TextBlock Text="{Binding SelectedWorkspace.Name, FallbackValue=默认工作区}"
+                       Classes="muted"/>
+        </StackPanel>
+        <TextBlock Grid.Column="1"
+                   Text="{Binding StatusMessage}"
+                   Classes="muted"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"/>
+	        <StackPanel Grid.Column="2"
+	                    Orientation="Horizontal"
+                    Margin="0,0,8,0"
+                    Spacing="4"
+                    VerticalAlignment="Center">
+	            <Button Classes="iconButton" Click="Minimize_OnClick">
+	                <LucideIcon Kind="Minus"/>
+	            </Button>
+	            <Button Classes="iconButton" Click="Maximize_OnClick">
+	                <LucideIcon Kind="Square"/>
+	            </Button>
+	            <Button Classes="iconButton" Click="Close_OnClick">
+	                <LucideIcon Kind="X"/>
+	            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -1,0 +1,231 @@
+using System.Xml.Linq;
+using System.Text.RegularExpressions;
+using Yohuke.DanmuNeo.Models.State;
+
+namespace Yohuke.DanmuNeo.Services;
+
+/// <summary>
+/// 管理本地歌词库。
+/// </summary>
+public class LyricLibraryService
+{
+    private static readonly Regex METADATA_PATTERN = new(@"^\[[a-zA-Z]+:.*\]$", RegexOptions.Compiled);
+    private static readonly Regex TIMELINE_PATTERN = new(@"\[\d+:\d+(\.\d+)?\]", RegexOptions.Compiled);
+    private static readonly Regex BROKEN_TIMELINE_PATTERN = new(@"\[\d+:\d+[^\]]*$|\[\d+:\d+[^\]]*\]", RegexOptions.Compiled);
+
+    /// <summary>
+    /// 按关键词搜索歌词库。
+    /// </summary>
+    public List<LyricLibraryItem> Search(IEnumerable<LyricLibraryItem> library, string keyword)
+    {
+        var words = keyword
+            .Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (words.Length == 0)
+        {
+            return library
+                .OrderByDescending(item => item.LastUsedAt ?? item.UpdatedAt)
+                .ToList();
+        }
+
+        return library
+            .Where(item => words.All(word => GetSearchText(item).Contains(word, StringComparison.OrdinalIgnoreCase)))
+            .OrderByDescending(item => item.LastUsedAt ?? item.UpdatedAt)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 新增或更新歌词库条目。
+    /// </summary>
+    public LyricLibraryItem Upsert(List<LyricLibraryItem> library, LyricLibraryItem item)
+    {
+        Validate(item);
+
+        var now = DateTimeOffset.Now;
+        var existing = FindExisting(library, item);
+
+        if (existing is null)
+        {
+            item.Id = string.IsNullOrWhiteSpace(item.Id) ? Guid.NewGuid().ToString("N") : item.Id;
+            item.CreatedAt = now;
+            item.UpdatedAt = now;
+            library.Add(item);
+            return item;
+        }
+
+        existing.Title = item.Title;
+        existing.Artist = item.Artist;
+        existing.Album = item.Album;
+        existing.Source = item.Source;
+        existing.SourceSongId = item.SourceSongId;
+        existing.Tags = item.Tags;
+        existing.HasTranslation = item.HasTranslation;
+        existing.LyricText = item.LyricText;
+        existing.TranslatedLyricText = item.TranslatedLyricText;
+        existing.UpdatedAt = now;
+        return existing;
+    }
+
+    /// <summary>
+    /// 从本地歌词文件创建歌词库条目。
+    /// </summary>
+    public async Task<LyricLibraryItem> CreateFromLocalFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        var text = await File.ReadAllTextAsync(filePath, cancellationToken);
+        var title = Path.GetFileNameWithoutExtension(filePath);
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new InvalidDataException("歌词文件为空。");
+        }
+
+        if (LooksLikeLocalXml(text))
+        {
+            return CreateFromLocalXml(text, title);
+        }
+
+        return new()
+        {
+            Title = title,
+            Source = "local",
+            LyricText = text,
+            Tags = title
+        };
+    }
+
+    /// <summary>
+    /// 标记歌词条目已使用。
+    /// </summary>
+    public void Touch(LyricLibraryItem item)
+    {
+        item.LastUsedAt = DateTimeOffset.Now;
+    }
+
+    /// <summary>
+    /// 校验歌词库条目。
+    /// </summary>
+    public void Validate(LyricLibraryItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.Title))
+        {
+            throw new InvalidDataException("歌曲名不能为空。");
+        }
+
+        if (string.IsNullOrWhiteSpace(item.LyricText) &&
+            string.IsNullOrWhiteSpace(item.TranslatedLyricText))
+        {
+            throw new InvalidDataException("歌词内容不能为空。");
+        }
+
+        ValidateLyricText(item.LyricText, "原文歌词");
+        ValidateLyricText(item.TranslatedLyricText, "翻译歌词");
+    }
+
+    private static LyricLibraryItem? FindExisting(List<LyricLibraryItem> library, LyricLibraryItem item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.SourceSongId))
+        {
+            var bySource = library.FirstOrDefault(existing =>
+                existing.Source == item.Source &&
+                existing.SourceSongId == item.SourceSongId);
+
+            if (bySource is not null)
+            {
+                return bySource;
+            }
+        }
+
+        return library.FirstOrDefault(existing =>
+            existing.Source == item.Source &&
+            existing.Title.Equals(item.Title, StringComparison.OrdinalIgnoreCase) &&
+            existing.Artist.Equals(item.Artist, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string GetSearchText(LyricLibraryItem item)
+    {
+        return string.Join(" ", item.Title, item.Artist, item.Album, item.SourceLabel, item.SourceSongId, item.Tags);
+    }
+
+    private static bool LooksLikeLocalXml(string text)
+    {
+        return text.Contains("<local", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("<lyric>", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static LyricLibraryItem CreateFromLocalXml(string text, string fallbackTitle)
+    {
+        XElement root;
+
+        try
+        {
+            root = XElement.Parse(text);
+        }
+        catch (Exception exception)
+        {
+            throw new InvalidDataException($"歌词 XML 解析失败：{exception.Message}", exception);
+        }
+
+        var title = ReadElement(root, "name");
+        var artist = ReadElement(root, "artists");
+        var tags = ReadElement(root, "tags");
+        var type = ReadElement(root, "type");
+        var lyric = ReadElement(root, "lyric");
+
+        return new()
+        {
+            Title = string.IsNullOrWhiteSpace(title) ? fallbackTitle : title,
+            Artist = artist,
+            Source = "local",
+            Tags = tags,
+            HasTranslation = type == "双语",
+            LyricText = lyric
+        };
+    }
+
+    private static void ValidateLyricText(string text, string name)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        var hasContent = false;
+
+        foreach (var rawLine in text.Replace("\r\n", "\n").Split('\n'))
+        {
+            var line = rawLine.Trim();
+
+            if (line.Length == 0 || METADATA_PATTERN.IsMatch(line))
+            {
+                continue;
+            }
+
+            if (line.Contains('[') != line.Contains(']'))
+            {
+                throw new InvalidDataException($"{name}存在不完整的时间轴标记。");
+            }
+
+            if (BROKEN_TIMELINE_PATTERN.IsMatch(line) && !TIMELINE_PATTERN.IsMatch(line))
+            {
+                throw new InvalidDataException($"{name}存在非法时间轴格式。");
+            }
+
+            var content = TIMELINE_PATTERN.Replace(line, "").Trim();
+
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                hasContent = true;
+            }
+        }
+
+        if (!hasContent)
+        {
+            throw new InvalidDataException($"{name}没有有效歌词内容。");
+        }
+    }
+
+    private static string ReadElement(XElement root, string name)
+    {
+        return root.Element(name)?.Value.Trim() ?? "";
+    }
+}
