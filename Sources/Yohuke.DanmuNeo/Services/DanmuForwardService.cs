@@ -33,6 +33,11 @@ public class DanmuForwardService
     /// </summary>
     public string Validate(DanmuForwardRuleState rule)
     {
+        if (string.IsNullOrWhiteSpace(rule.SenderUid) && string.IsNullOrWhiteSpace(rule.ContentPattern))
+        {
+            return "请填写 UID 或正则规则。";
+        }
+
         if (string.IsNullOrWhiteSpace(rule.ContentPattern))
         {
             return "";
@@ -47,5 +52,21 @@ public class DanmuForwardService
         {
             return exception.Message;
         }
+    }
+
+    /// <summary>
+    /// 创建最终转发弹幕文本。
+    /// </summary>
+    public string CreateForwardMessage(
+        BilibiliDanmuMessage message,
+        DanmuForwardRuleState rule,
+        MarkSymbolGroup fallbackGroup,
+        IEnumerable<MarkSymbolGroup> symbolGroups)
+    {
+        var markGroup = symbolGroups.FirstOrDefault(group => group.Id == rule.MarkSymbolGroupId) ?? fallbackGroup;
+        return LyricTimelineService.CreateMessage(
+            markGroup.TranslateOpenMark,
+            markGroup.TranslateCloseMark,
+            message.Content);
     }
 }

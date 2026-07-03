@@ -21,6 +21,7 @@ public class WorkspaceShareServiceTests
                 {
                     RoomId = "123",
                     RoomName = "直播间",
+                    OwnerUid = "10001",
                     AccountOverrideId = "room-account",
                     InputDraft = "draft",
                     LyricTitle = "song",
@@ -53,6 +54,7 @@ public class WorkspaceShareServiceTests
         Assert.DoesNotContain("secret-pattern", json);
         Assert.DoesNotContain("source-workspace", json);
         Assert.Equal("直播间", package.Rooms[0].RoomName);
+        Assert.Equal("10001", package.Rooms[0].OwnerUid);
     }
 
     [Fact]
@@ -74,7 +76,8 @@ public class WorkspaceShareServiceTests
                 new()
                 {
                     RoomId = "456",
-                    RoomName = "导入房间"
+                    RoomName = "导入房间",
+                    OwnerUid = "20002"
                 }
             ]
         };
@@ -86,5 +89,6 @@ public class WorkspaceShareServiceTests
         Assert.Single(workspace.LiveRooms);
         Assert.Null(workspace.LiveRooms[0].AccountOverrideId);
         Assert.Equal("456", workspace.LiveRooms[0].RoomId);
+        Assert.Equal("20002", workspace.LiveRooms[0].OwnerUid);
     }
 }

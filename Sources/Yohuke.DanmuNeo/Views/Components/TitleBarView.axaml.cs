@@ -38,11 +38,26 @@ public partial class TitleBarView : UserControl
         }
     }
 
+    private void Pin_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is not Window window)
+        {
+            return;
+        }
+
+        window.Topmost = !window.Topmost;
+        PinButton.Classes.Set("selected", window.Topmost);
+        PinOutlineIcon.IsVisible = !window.Topmost;
+        PinSolidIcon.IsVisible = window.Topmost;
+        ToolTip.SetTip(PinButton, window.Topmost ? "取消窗口置顶" : "窗口置顶");
+    }
+
     private void Maximize_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is Window window)
         {
-            window.WindowState = window.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+            window.WindowState =
+                window.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
         }
     }
 

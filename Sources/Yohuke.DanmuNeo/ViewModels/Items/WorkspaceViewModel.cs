@@ -102,14 +102,11 @@ public partial class WorkspaceViewModel : ViewModelBase
     /// </summary>
     public string RoomCountText => $"{Rooms.Count} 个直播间";
 
-    [ObservableProperty]
-    private bool isExpanded = true;
+    [ObservableProperty] private bool isExpanded = true;
 
-    [ObservableProperty]
-    private bool isSelected;
+    [ObservableProperty] private bool isSelected;
 
-    [ObservableProperty]
-    private LiveRoomTabViewModel? selectedRoom;
+    [ObservableProperty] private LiveRoomTabViewModel? selectedRoom;
 
     partial void OnSelectedRoomChanged(LiveRoomTabViewModel? value)
     {
@@ -120,12 +117,13 @@ public partial class WorkspaceViewModel : ViewModelBase
     /// <summary>
     /// 添加直播间。
     /// </summary>
-    public LiveRoomTabViewModel AddRoom(string roomId, string roomName)
+    public LiveRoomTabViewModel AddRoom(string roomId, string roomName, string ownerUid = "")
     {
         var roomState = new LiveRoomTabState
         {
             RoomId = roomId,
             RoomName = string.IsNullOrWhiteSpace(roomName) ? roomId : roomName,
+            OwnerUid = ownerUid,
             SortOrder = Rooms.Count
         };
         State.LiveRooms.Add(roomState);

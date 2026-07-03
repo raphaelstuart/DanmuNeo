@@ -26,6 +26,16 @@ public class AppSettings
     public string LyricCloseMark { get; set; } = "】";
 
     /// <summary>
+    /// 弹幕插入开标记。
+    /// </summary>
+    public string DanmuInsertOpenMark { get; set; } = "\"";
+
+    /// <summary>
+    /// 弹幕插入闭标记。
+    /// </summary>
+    public string DanmuInsertCloseMark { get; set; } = "\"";
+
+    /// <summary>
     /// 可选符号组。
     /// </summary>
     public List<MarkSymbolGroup> MarkGroups { get; set; } = [];

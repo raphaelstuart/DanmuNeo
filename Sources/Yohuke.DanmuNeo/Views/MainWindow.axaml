@@ -11,7 +11,7 @@
         ExtendClientAreaToDecorationsHint="True"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="42"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/favicon.ico"
         Title="{Binding WindowTitle}">
 
     <Design.DataContext>
@@ -36,7 +36,7 @@
 
             <components:WorkspaceSidebarView Grid.Column="0"/>
 
-            <GridSplitter Grid.Column="1" Width="4"
+            <GridSplitter Grid.Column="1" Width="2"
                           Classes="sidebarSplitter"
                           ResizeDirection="Columns"
                           ResizeBehavior="PreviousAndNext"

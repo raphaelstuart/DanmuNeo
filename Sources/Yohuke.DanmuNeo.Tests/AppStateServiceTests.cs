@@ -198,7 +198,8 @@ public class AppStateServiceTests
         var loaded = service.Load();
 
         Assert.Equal("可恢复工作区", loaded.Workspaces[0].Name);
-        var restoredState = JsonSerializer.Deserialize<WorkspaceStorageState>(File.ReadAllText(service.WorkspacesFilePath));
+        var restoredState =
+            JsonSerializer.Deserialize<WorkspaceStorageState>(File.ReadAllText(service.WorkspacesFilePath));
         Assert.Equal("可恢复工作区", restoredState?.Workspaces[0].Name);
     }
 
@@ -242,6 +243,17 @@ public class AppStateServiceTests
         var service = new AppStateService(directory);
         var state = new AppState
         {
+            Settings = new()
+            {
+                MarkGroups =
+                [
+                    new()
+                    {
+                        Id = "mark-group",
+                        Name = "转发符号组"
+                    }
+                ]
+            },
             Workspaces =
             [
                 new()
@@ -253,12 +265,14 @@ public class AppStateServiceTests
                         {
                             RoomId = "100",
                             RoomName = "目标",
+                            OwnerUid = "10001",
                             ForwardRules =
                             [
                                 new()
                                 {
                                     SourceWorkspaceId = "source-workspace",
                                     SourceRoomStateId = "source-room",
+                                    MarkSymbolGroupId = "mark-group",
                                     SenderUid = "42",
                                     ContentPattern = "^【.+】$",
                                     IsEnabled = true
@@ -274,9 +288,11 @@ public class AppStateServiceTests
         var loaded = service.Load();
         var rule = loaded.Workspaces[0].LiveRooms[0].ForwardRules[0];
 
+        Assert.Equal("10001", loaded.Workspaces[0].LiveRooms[0].OwnerUid);
         Assert.True(rule.IsEnabled);
         Assert.Equal("source-workspace", rule.SourceWorkspaceId);
         Assert.Equal("source-room", rule.SourceRoomStateId);
+        Assert.Equal("mark-group", rule.MarkSymbolGroupId);
         Assert.Equal("42", rule.SenderUid);
         Assert.Equal("^【.+】$", rule.ContentPattern);
     }

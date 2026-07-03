@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,9 +24,12 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private Func<string, string, BilibiliAccount?>? resolveAccountByRoom;
     private Func<AppSettings>? getSettings;
     private Func<MarkSymbolGroup>? getMarkSymbolGroup;
+    private Func<IEnumerable<MarkSymbolGroup>>? getSymbolGroups;
     private Func<LiveRoomTabViewModel, IEnumerable<ForwardSourceRoomOption>>? getForwardSourceRooms;
     private Func<Task>? saveState;
     private DanmuSendService? sendService;
+    private AvatarCacheService? avatarCacheService;
+    private Bitmap? avatarImage;
     private readonly DanmuForwardService forwardService = new();
     private readonly LyricTimelineService lyricTimelineService = new();
 
@@ -37,7 +42,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         inputDraft = state.InputDraft;
         lyricInput = state.LyricText;
         lyricTitle = state.LyricTitle;
-        ForwardRules = new(state.ForwardRules.Select(rule => new DanmuForwardRuleViewModel(rule, OnForwardRuleChanged)));
+        avatarPath = state.AvatarPath;
+        RefreshAvatarImage();
+        ForwardRules =
+            new(state.ForwardRules.Select(rule => new DanmuForwardRuleViewModel(rule, OnForwardRuleChanged)));
     }
 
     /// <summary>
@@ -89,8 +97,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             }
 
             State.RoomId = value;
+            AvatarPath = "";
             OnPropertyChanged();
             OnPropertyChanged(nameof(Header));
+            OnPropertyChanged(nameof(AvatarPlaceholderBrush));
+            OnPropertyChanged(nameof(AvatarPlaceholderText));
         }
     }
 
@@ -110,6 +121,27 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             State.RoomName = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Header));
+            OnPropertyChanged(nameof(AvatarPlaceholderText));
+        }
+    }
+
+    /// <summary>
+    /// 主播 UID。
+    /// </summary>
+    public string OwnerUid
+    {
+        get => State.OwnerUid;
+        set
+        {
+            if (State.OwnerUid == value)
+            {
+                return;
+            }
+
+            State.OwnerUid = value;
+            AvatarPath = "";
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AvatarPlaceholderBrush));
         }
     }
 
@@ -136,23 +168,19 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
     }
 
-    [ObservableProperty]
-    private string inputDraft = "";
+    [ObservableProperty] private string inputDraft = "";
 
-    [ObservableProperty]
-    private string lyricInput = "";
+    [ObservableProperty] private string lyricInput = "";
 
-    [ObservableProperty]
-    private string lyricTitle = "";
+    [ObservableProperty] private string lyricTitle = "";
 
-    [ObservableProperty]
-    private string connectionStatus = "未连接";
+    [ObservableProperty] private string connectionStatus = "未连接";
 
-    [ObservableProperty]
-    private bool isListening;
+    [ObservableProperty] private bool isListening;
 
-    [ObservableProperty]
-    private bool isLyricAutoSending;
+    [ObservableProperty] private bool isLyricAutoSending;
+
+    [ObservableProperty] private string avatarPath = "";
 
     /// <summary>
     /// 是否未监听。
@@ -164,17 +192,48 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// </summary>
     public string ListenToggleText => IsListening ? "停止" : "监听";
 
+    /// <summary>
+    /// 是否存在主播头像。
+    /// </summary>
+    public bool HasAvatar => avatarImage is not null;
+
+    /// <summary>
+    /// 是否没有主播头像。
+    /// </summary>
+    public bool HasNoAvatar => !HasAvatar;
+
+    /// <summary>
+    /// 主播头像位图。
+    /// </summary>
+    public Bitmap? AvatarImage => avatarImage;
+
+    /// <summary>
+    /// 头像占位文字。
+    /// </summary>
+    public string AvatarPlaceholderText
+    {
+        get
+        {
+            var source = string.IsNullOrWhiteSpace(RoomName) ? RoomId : RoomName;
+            var character = source.Trim().FirstOrDefault();
+            return character == default ? "?" : character.ToString().ToUpperInvariant();
+        }
+    }
+
+    /// <summary>
+    /// 头像占位背景。
+    /// </summary>
+    public IBrush AvatarPlaceholderBrush => new SolidColorBrush(CreateAvatarPlaceholderColor(GetAvatarIdentity()));
+
     partial void OnIsListeningChanged(bool value)
     {
         OnPropertyChanged(nameof(IsNotListening));
         OnPropertyChanged(nameof(ListenToggleText));
     }
 
-    [ObservableProperty]
-    private bool isSelected;
+    [ObservableProperty] private bool isSelected;
 
-    [ObservableProperty]
-    private int activeLyricIndex;
+    [ObservableProperty] private int activeLyricIndex;
 
     partial void OnInputDraftChanged(string value)
     {
@@ -197,6 +256,14 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         State.LyricTitle = value;
     }
 
+    partial void OnAvatarPathChanged(string value)
+    {
+        State.AvatarPath = value;
+        RefreshAvatarImage();
+        OnPropertyChanged(nameof(HasAvatar));
+        OnPropertyChanged(nameof(HasNoAvatar));
+    }
+
     /// <summary>
     /// 注入运行时服务。
     /// </summary>
@@ -205,19 +272,140 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         Func<string, string, BilibiliAccount?> resolveAccountByRoom,
         Func<AppSettings> getSettings,
         Func<MarkSymbolGroup> getMarkSymbolGroup,
+        Func<IEnumerable<MarkSymbolGroup>> getSymbolGroups,
         Func<LiveRoomTabViewModel, IEnumerable<ForwardSourceRoomOption>> getForwardSourceRooms,
         DanmuSendService sendService,
+        AvatarCacheService avatarCacheService,
         Func<Task> saveState)
     {
         this.resolveAccount = resolveAccount;
         this.resolveAccountByRoom = resolveAccountByRoom;
         this.getSettings = getSettings;
         this.getMarkSymbolGroup = getMarkSymbolGroup;
+        this.getSymbolGroups = getSymbolGroups;
         this.getForwardSourceRooms = getForwardSourceRooms;
         this.sendService = sendService;
+        this.avatarCacheService = avatarCacheService;
         this.saveState = saveState;
         sendService.RecordCreated += OnSendRecordCreated;
         ApplyLyric();
+    }
+
+    /// <summary>
+    /// 加载主播头像。
+    /// </summary>
+    public async Task<bool> LoadAvatarAsync(bool force = false)
+    {
+        if (avatarCacheService is null)
+        {
+            return false;
+        }
+
+        if (!force && HasAvatar)
+        {
+            OnPropertyChanged(nameof(HasAvatar));
+            OnPropertyChanged(nameof(HasNoAvatar));
+            return true;
+        }
+
+        var account = resolveAccount?.Invoke(this);
+        var result = await avatarCacheService.GetRoomAvatarResultAsync(RoomId, OwnerUid, account?.Cookie);
+
+        if (string.IsNullOrWhiteSpace(result.AvatarPath))
+        {
+            return false;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!string.IsNullOrWhiteSpace(result.OwnerUid) && OwnerUid != result.OwnerUid)
+            {
+                State.OwnerUid = result.OwnerUid;
+                OnPropertyChanged(nameof(OwnerUid));
+                OnPropertyChanged(nameof(AvatarPlaceholderBrush));
+            }
+
+            if ((string.IsNullOrWhiteSpace(RoomName) || RoomName == RoomId) &&
+                !string.IsNullOrWhiteSpace(result.OwnerName))
+            {
+                RoomName = result.OwnerName;
+            }
+
+            AvatarPath = result.AvatarPath;
+        });
+
+        return true;
+    }
+
+    private void RefreshAvatarImage()
+    {
+        avatarImage?.Dispose();
+        avatarImage = null;
+
+        if (string.IsNullOrWhiteSpace(AvatarPath) || !File.Exists(AvatarPath))
+        {
+            OnPropertyChanged(nameof(AvatarImage));
+            return;
+        }
+
+        try
+        {
+            avatarImage = new(AvatarPath);
+        }
+        catch
+        {
+            avatarImage = null;
+        }
+
+        OnPropertyChanged(nameof(AvatarImage));
+    }
+
+    /// <summary>
+    /// 根据直播间 ID 生成稳定头像占位颜色。
+    /// </summary>
+    public static Color CreateAvatarPlaceholderColor(string roomId)
+    {
+        var hash = 0;
+
+        foreach (var character in roomId)
+        {
+            hash = unchecked((hash * 31) + character);
+        }
+
+        var hue = Math.Abs(hash) % 360;
+        return FromHsl(hue, 0.52, 0.46);
+    }
+
+    private string GetAvatarIdentity()
+    {
+        return string.IsNullOrWhiteSpace(OwnerUid) ? RoomId : OwnerUid;
+    }
+
+    private static Color FromHsl(int hue, double saturation, double lightness)
+    {
+        var chroma = (1 - Math.Abs((2 * lightness) - 1)) * saturation;
+        var hueSection = hue / 60.0;
+        var x = chroma * (1 - Math.Abs((hueSection % 2) - 1));
+        var match = lightness - (chroma / 2);
+        (double Red, double Green, double Blue) color = hueSection switch
+        {
+            >= 0 and < 1 => (chroma, x, 0),
+            >= 1 and < 2 => (x, chroma, 0),
+            >= 2 and < 3 => (0, chroma, x),
+            >= 3 and < 4 => (0, x, chroma),
+            >= 4 and < 5 => (x, 0, chroma),
+            _ => (chroma, 0, x)
+        };
+
+        return Color.FromRgb(
+            ToByte(color.Red + match),
+            ToByte(color.Green + match),
+            ToByte(color.Blue + match));
+    }
+
+    private static byte ToByte(double value)
+    {
+        return (byte)Math.Clamp(Math.Round(value * 255), 0, 255);
     }
 
     /// <summary>
@@ -283,7 +471,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
         var line = Lyrics[Math.Clamp((int)ActiveLyricIndex, 0, Lyrics.Count - 1)];
         var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
-        var message = LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, line.Content);
+        var message =
+            LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, line.Content);
         await SendMessageAsync(message, account, settings);
         ActiveLyricIndex = Math.Min(ActiveLyricIndex + 1, Math.Max(0, Lyrics.Count - 1));
         RefreshActiveLyric();
@@ -355,7 +544,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         socket.SuperChatReceived += OnSuperChatReceived;
         socket.Disconnected += (_, _) => Dispatcher.UIThread.Post(() => ConnectionStatus = "连接中断");
         socket.Recovered += (_, _) => Dispatcher.UIThread.Post(() => ConnectionStatus = "已恢复");
-        socket.ErrorReceived += (_, exception) => Dispatcher.UIThread.Post(() => ConnectionStatus = $"监听失败：{exception.Message}");
+        socket.ErrorReceived += (_, exception) =>
+            Dispatcher.UIThread.Post(() => ConnectionStatus = $"监听失败：{exception.Message}");
         IsListening = true;
         ConnectionStatus = "监听中";
 
@@ -410,7 +600,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     {
         RefreshForwardSourceRooms();
 
-        var ruleState = new DanmuForwardRuleState();
+        var ruleState = new DanmuForwardRuleState
+        {
+            MarkSymbolGroupId = getMarkSymbolGroup?.Invoke().Id ?? ""
+        };
         var source = ForwardSourceRooms.FirstOrDefault();
 
         if (source is not null)
@@ -471,7 +664,32 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 将 SC 内容复制到同传输入框。
+    /// 将弹幕内容插入同传输入框。
+    /// </summary>
+    public int InsertDanmuContent(string? content, int? insertIndex = null)
+    {
+        if (content is null)
+        {
+            return InputDraft.Length;
+        }
+
+        var settings = getSettings?.Invoke() ?? new();
+        var draft = InputDraft;
+        var normalizedInsertIndex = insertIndex ?? draft.Length;
+
+        if (normalizedInsertIndex < 0 || normalizedInsertIndex > draft.Length)
+        {
+            normalizedInsertIndex = draft.Length;
+        }
+
+        var insertText = $"{settings.DanmuInsertOpenMark}{content}{settings.DanmuInsertCloseMark}";
+        InputDraft = draft.Insert(normalizedInsertIndex, insertText);
+
+        return normalizedInsertIndex + insertText.Length;
+    }
+
+    /// <summary>
+    /// 将 SC 内容插入同传输入框。
     /// </summary>
     [RelayCommand]
     public void CopySuperChat(SuperChatItem? superChat)
@@ -481,7 +699,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             return;
         }
 
-        InputDraft = superChat.Content;
+        InsertDanmuContent(superChat.Content);
     }
 
     /// <summary>
@@ -572,7 +790,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         _ = Task.Run(async () =>
         {
             var socket = new BilibiliLiveWebSocket(sourceRoomId, sourceAccount.Cookie);
-            socket.DanmuReceived += (_, message) => _ = ForwardDanmuAsync(rule, message, targetAccount, settings, tokenSource.Token);
+            socket.DanmuReceived += (_, message) =>
+                _ = ForwardDanmuAsync(rule, message, targetAccount, settings, tokenSource.Token);
             socket.ErrorReceived += (_, exception) => SetForwardRuleStatus(rule, $"监听失败：{exception.Message}");
             socket.Disconnected += (_, _) => SetForwardRuleStatus(rule, "连接中断");
             socket.Recovered += (_, _) => SetForwardRuleStatus(rule, "监听中");
@@ -586,7 +805,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             }
             finally
             {
-                if (forwardTokenSources.TryGetValue(rule.Id, out var currentTokenSource) && currentTokenSource == tokenSource)
+                if (forwardTokenSources.TryGetValue(rule.Id, out var currentTokenSource) &&
+                    currentTokenSource == tokenSource)
                 {
                     forwardTokenSources.Remove(rule.Id);
                 }
@@ -620,7 +840,13 @@ public partial class LiveRoomTabViewModel : ViewModelBase
                 return;
             }
 
-            await SendMessageAsync(message.Content, targetAccount, settings, cancellationToken);
+            var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
+            var messageText = forwardService.CreateForwardMessage(
+                message,
+                rule.State,
+                markGroup,
+                getSymbolGroups?.Invoke() ?? [markGroup]);
+            await SendMessageAsync(messageText, targetAccount, settings, cancellationToken);
             SetForwardRuleStatus(rule, $"已转发 {DateTime.Now:HH:mm:ss}");
         }
         catch (Exception exception)

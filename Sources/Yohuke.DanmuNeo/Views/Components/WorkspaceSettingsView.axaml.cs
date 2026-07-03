@@ -1,6 +1,8 @@
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Yohuke.DanmuNeo.ViewModels;
+using Yohuke.DanmuNeo.ViewModels.Items;
 
 namespace Yohuke.DanmuNeo.Views.Components;
 
@@ -17,7 +19,18 @@ public partial class WorkspaceSettingsView : UserControl
         InitializeComponent();
     }
 
-    private async void ExportWorkspace_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void RoomInfo_OnLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel ||
+            sender is not Control { DataContext: LiveRoomTabViewModel room })
+        {
+            return;
+        }
+
+        await viewModel.SaveRoomInfoAsync(room);
+    }
+
+    private async void ExportWorkspace_OnClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel viewModel ||
             TopLevel.GetTopLevel(this) is not TopLevel topLevel)

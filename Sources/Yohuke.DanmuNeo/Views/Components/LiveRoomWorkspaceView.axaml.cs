@@ -2,8 +2,10 @@ using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Yohuke.DanmuNeo.Models.Workspace;
 using Yohuke.DanmuNeo.ViewModels.Items;
 
 namespace Yohuke.DanmuNeo.Views.Components;
@@ -47,6 +49,42 @@ public partial class LiveRoomWorkspaceView : UserControl
         room.SendDraftCommand.Execute(null);
     }
 
+    private void Danmu_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: DanmuFeedItem item } ||
+            DataContext is not LiveRoomTabViewModel room)
+        {
+            return;
+        }
+
+        InsertFeedContent(room, item.Content);
+    }
+
+    private void SuperChat_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: SuperChatItem item } ||
+            DataContext is not LiveRoomTabViewModel room)
+        {
+            return;
+        }
+
+        InsertFeedContent(room, item.Content);
+    }
+
+    private void InsertFeedContent(LiveRoomTabViewModel room, string content)
+    {
+        var currentDraft = InputDraftTextBox.Text ?? "";
+        room.InputDraft = currentDraft;
+        var nextCaretIndex = room.InsertDanmuContent(content, InputDraftTextBox.CaretIndex);
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            InputDraftTextBox.Text = room.InputDraft;
+            InputDraftTextBox.Focus();
+            InputDraftTextBox.CaretIndex = Math.Min(nextCaretIndex, InputDraftTextBox.Text?.Length ?? 0);
+        }, DispatcherPriority.Background);
+    }
+
     private void LiveRoomWorkspaceView_OnDataContextChanged(object? sender, EventArgs e)
     {
         AttachDanmuItems(DataContext as LiveRoomTabViewModel);
@@ -87,9 +125,7 @@ public partial class LiveRoomWorkspaceView : UserControl
 
     private void ScrollDanmuToLatest()
     {
-        Dispatcher.UIThread.Post(() =>
-        {
-            DanmuScrollViewer.Offset = new Vector(DanmuScrollViewer.Offset.X, 0);
-        }, DispatcherPriority.Background);
+        Dispatcher.UIThread.Post(() => { DanmuScrollViewer.Offset = new Vector(DanmuScrollViewer.Offset.X, 0); },
+            DispatcherPriority.Background);
     }
 }

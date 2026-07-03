@@ -21,6 +21,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly MarkSymbolService markSymbolService = new();
     private readonly LyricLibraryService lyricLibraryService = new();
     private readonly MusicLyricImportService musicLyricImportService = new();
+    private readonly AppDirectoryService appDirectoryService;
+    private readonly AppBackupService appBackupService;
+    private readonly AvatarCacheService avatarCacheService;
     private WorkspaceViewModel? addDialogWorkspace;
     private WorkspaceViewModel? deleteDialogWorkspace;
     private LiveRoomTabViewModel? deleteDialogRoom;
@@ -41,6 +44,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(AppStateService stateService)
     {
         this.stateService = stateService;
+        appDirectoryService = new(stateService.ConfigDirectory);
+        appDirectoryService.EnsureDirectories();
+        appBackupService = new(appDirectoryService);
+        avatarCacheService = new(appDirectoryService);
         State = stateService.Load();
         Settings = State.Settings;
         Accounts = new(State.Accounts);
@@ -49,9 +56,11 @@ public partial class MainWindowViewModel : ViewModelBase
         FilteredLyricLibrary = new(lyricLibraryService.Search(State.LyricLibrary, ""));
         MusicLyricSearchResults = [];
         Workspaces = new(State.Workspaces.OrderBy(workspace => workspace.SortOrder).Select(CreateWorkspaceViewModel));
-        selectedWorkspace = Workspaces.FirstOrDefault(workspace => workspace.Id == State.SelectedWorkspaceId) ?? Workspaces.FirstOrDefault();
+        selectedWorkspace = Workspaces.FirstOrDefault(workspace => workspace.Id == State.SelectedWorkspaceId) ??
+                            Workspaces.FirstOrDefault();
         RefreshThemeModeOptions();
         RefreshSettingsSectionOptions();
+        RefreshCacheSize();
         RefreshTreeSelection();
         RefreshForwardSourceRooms();
         RestartForwarding();
@@ -116,7 +125,8 @@ public partial class MainWindowViewModel : ViewModelBase
         new("account", "账号登录", "B 站与音乐账号绑定"),
         new("lyricLibrary", "歌词库", "本地与音乐 API 导入"),
         new("marks", "标签组", "同传与歌词开闭标记"),
-        new("workspace", "工作区设置", "名称、账号覆盖与分享")
+        new("workspace", "工作区设置", "名称、账号覆盖与分享"),
+        new("misc", "杂项", "版本、目录与备份")
     ];
 
     /// <summary>
@@ -161,6 +171,7 @@ public partial class MainWindowViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsLyricLibrarySettingsSelected));
             OnPropertyChanged(nameof(IsMarkSettingsSelected));
             OnPropertyChanged(nameof(IsWorkspaceSettingsSelected));
+            OnPropertyChanged(nameof(IsMiscSettingsSelected));
         }
     }
 
@@ -176,7 +187,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 return null;
             }
 
-            return SymbolGroups.FirstOrDefault(group => group.Id == SelectedWorkspace.SelectedMarkGroupId) ?? SymbolGroups.FirstOrDefault();
+            return SymbolGroups.FirstOrDefault(group => group.Id == SelectedWorkspace.SelectedMarkGroupId) ??
+                   SymbolGroups.FirstOrDefault();
         }
         set
         {
@@ -191,64 +203,51 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    [ObservableProperty]
-    private WorkspaceViewModel? selectedWorkspace;
+    [ObservableProperty] private WorkspaceViewModel? selectedWorkspace;
 
     private string selectedSettingsSectionKey = "global";
 
-    [ObservableProperty]
-    private string lyricLibrarySearchText = "";
+    [ObservableProperty] private string lyricLibrarySearchText = "";
 
-    [ObservableProperty]
-    private string musicLyricSearchText = "";
+    [ObservableProperty] private string musicLyricSearchText = "";
 
-    [ObservableProperty]
-    private string selectedMusicLyricSource = "wy";
+    [ObservableProperty] private string selectedMusicLyricSource = "wy";
 
-    [ObservableProperty]
-    private bool isMusicLyricSearching;
+    [ObservableProperty] private bool isMusicLyricSearching;
 
-    [ObservableProperty]
-    private bool isSettingsOpen;
+    [ObservableProperty] private bool isSettingsOpen;
 
-    [ObservableProperty]
-    private bool isAddDialogOpen;
+    [ObservableProperty] private bool isAddDialogOpen;
 
-    [ObservableProperty]
-    private bool isConfirmDeleteDialogOpen;
+    [ObservableProperty] private bool isConfirmDeleteDialogOpen;
 
-    [ObservableProperty]
-    private bool isLyricLibraryPickerOpen;
+    [ObservableProperty] private bool isLyricLibraryPickerOpen;
 
-    [ObservableProperty]
-    private string addDialogTitle = "";
+    [ObservableProperty] private string addDialogTitle = "";
 
-    [ObservableProperty]
-    private string addDialogDescription = "";
+    [ObservableProperty] private string addDialogDescription = "";
 
-    [ObservableProperty]
-    private string addDialogPrimaryText = "";
+    [ObservableProperty] private string addDialogPrimaryText = "";
 
-    [ObservableProperty]
-    private string deleteDialogTitle = "";
+    [ObservableProperty] private string deleteDialogTitle = "";
 
-    [ObservableProperty]
-    private string deleteDialogDescription = "";
+    [ObservableProperty] private string deleteDialogDescription = "";
 
-    [ObservableProperty]
-    private string deleteDialogPrimaryText = "删除";
+    [ObservableProperty] private string deleteDialogPrimaryText = "删除";
 
-    [ObservableProperty]
-    private string newWorkspaceName = "";
+    [ObservableProperty] private string newWorkspaceName = "";
 
-    [ObservableProperty]
-    private string newRoomId = "";
+    [ObservableProperty] private string newRoomId = "";
 
-    [ObservableProperty]
-    private string newRoomName = "";
+    [ObservableProperty] private string newRoomName = "";
 
-    [ObservableProperty]
-    private string statusMessage = "";
+    [ObservableProperty] private string newRoomOwnerUid = "";
+
+    [ObservableProperty] private string statusMessage = "";
+
+    [ObservableProperty] private string cacheSizeText = "0 B";
+
+    [ObservableProperty] private string lastBackupPath = "";
 
     /// <summary>
     /// 窗口标题。
@@ -281,6 +280,31 @@ public partial class MainWindowViewModel : ViewModelBase
     /// 是否正在显示工作区设置。
     /// </summary>
     public bool IsWorkspaceSettingsSelected => selectedSettingsSectionKey == "workspace";
+
+    /// <summary>
+    /// 是否正在显示杂项设置。
+    /// </summary>
+    public bool IsMiscSettingsSelected => selectedSettingsSectionKey == "misc";
+
+    /// <summary>
+    /// 当前版本。
+    /// </summary>
+    public string AppVersion => typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "开发版";
+
+    /// <summary>
+    /// 配置目录。
+    /// </summary>
+    public string ConfigDirectory => appDirectoryService.ConfigDirectory;
+
+    /// <summary>
+    /// 缓存目录。
+    /// </summary>
+    public string CacheDirectory => appDirectoryService.CacheDirectory;
+
+    /// <summary>
+    /// 是否存在最近导出的备份路径。
+    /// </summary>
+    public bool HasLastBackupPath => !string.IsNullOrWhiteSpace(LastBackupPath);
 
     /// <summary>
     /// QQ 音乐绑定状态。
@@ -331,13 +355,20 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsQQMusicLyricSource));
     }
 
+    partial void OnLastBackupPathChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasLastBackupPath));
+    }
+
     /// <summary>
     /// 新建工作区。
     /// </summary>
     [RelayCommand]
     public async Task AddWorkspaceAsync()
     {
-        var name = string.IsNullOrWhiteSpace(NewWorkspaceName) ? $"工作区 {Workspaces.Count + 1}" : NewWorkspaceName.Trim();
+        var name = string.IsNullOrWhiteSpace(NewWorkspaceName)
+            ? $"工作区 {Workspaces.Count + 1}"
+            : NewWorkspaceName.Trim();
         var state = new WorkspaceState
         {
             Name = name
@@ -417,6 +448,7 @@ public partial class MainWindowViewModel : ViewModelBase
         NewWorkspaceName = "";
         NewRoomName = "";
         NewRoomId = "";
+        NewRoomOwnerUid = "";
         AddDialogTitle = "新建工作区";
         AddDialogDescription = "给新的同传工作空间起一个容易识别的名称。";
         AddDialogPrimaryText = "确定";
@@ -444,6 +476,7 @@ public partial class MainWindowViewModel : ViewModelBase
         NewWorkspaceName = "";
         NewRoomName = "";
         NewRoomId = "";
+        NewRoomOwnerUid = "";
         AddDialogTitle = $"添加直播间到 {targetWorkspace.Name}";
         AddDialogDescription = "输入直播间名称和 B 站直播间 ID，创建后会自动切换到该直播间。";
         AddDialogPrimaryText = "确定";
@@ -487,11 +520,12 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         SelectedWorkspace = workspace;
-        var room = workspace.AddRoom(NewRoomId.Trim(), NewRoomName.Trim());
+        var room = workspace.AddRoom(NewRoomId.Trim(), NewRoomName.Trim(), NewRoomOwnerUid.Trim());
         ConfigureRoom(room);
         workspace.IsExpanded = true;
         NewRoomId = "";
         NewRoomName = "";
+        NewRoomOwnerUid = "";
         IsAddDialogOpen = false;
         await SaveAsync();
         RefreshTreeSelection();
@@ -618,11 +652,12 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        var room = SelectedWorkspace.AddRoom(NewRoomId.Trim(), NewRoomName.Trim());
+        var room = SelectedWorkspace.AddRoom(NewRoomId.Trim(), NewRoomName.Trim(), NewRoomOwnerUid.Trim());
         ConfigureRoom(room);
         SelectedWorkspace.IsExpanded = true;
         NewRoomId = "";
         NewRoomName = "";
+        NewRoomOwnerUid = "";
         await SaveAsync();
         RefreshTreeSelection();
         RefreshForwardSourceRooms();
@@ -658,6 +693,27 @@ public partial class MainWindowViewModel : ViewModelBase
         await SaveAsync();
         RefreshTreeSelection();
         RefreshForwardSourceRooms();
+    }
+
+    /// <summary>
+    /// 保存直播间信息改动。
+    /// </summary>
+    [RelayCommand]
+    public async Task SaveRoomInfoAsync(LiveRoomTabViewModel? room)
+    {
+        if (room is null)
+        {
+            return;
+        }
+
+        RefreshTreeSelection();
+        RefreshForwardSourceRooms();
+        await SaveAsync();
+
+        if (!await room.LoadAvatarAsync(true))
+        {
+            StatusMessage = "主播头像获取失败，请检查直播间 ID 或主播 UID";
+        }
     }
 
     /// <summary>
@@ -998,7 +1054,8 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public async Task AddSymbolGroupAsync()
     {
-        var baseGroup = SelectedWorkspaceMarkGroup ?? SymbolGroups.FirstOrDefault() ?? MarkSymbolService.CreateDefaultGroup(Settings);
+        var baseGroup = SelectedWorkspaceMarkGroup ??
+                        SymbolGroups.FirstOrDefault() ?? MarkSymbolService.CreateDefaultGroup(Settings);
         var group = new MarkSymbolGroup
         {
             Name = $"符号组 {SymbolGroups.Count + 1}",
@@ -1234,6 +1291,70 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 打开配置目录。
+    /// </summary>
+    [RelayCommand]
+    public void OpenConfigDirectory()
+    {
+        OpenDirectory(ConfigDirectory, "配置目录打开失败");
+    }
+
+    /// <summary>
+    /// 打开缓存目录。
+    /// </summary>
+    [RelayCommand]
+    public void OpenCacheDirectory()
+    {
+        OpenDirectory(CacheDirectory, "缓存目录打开失败");
+    }
+
+    /// <summary>
+    /// 刷新缓存体积。
+    /// </summary>
+    [RelayCommand]
+    public void RefreshCacheSize()
+    {
+        CacheSizeText = AppBackupService.FormatSize(appBackupService.GetDirectorySize(CacheDirectory));
+    }
+
+    /// <summary>
+    /// 清理缓存。
+    /// </summary>
+    [RelayCommand]
+    public async Task ClearCacheAsync()
+    {
+        appBackupService.ClearCache();
+
+        foreach (var room in Workspaces.SelectMany(workspace => workspace.Rooms))
+        {
+            room.AvatarPath = "";
+        }
+
+        RefreshCacheSize();
+        await SaveAsync();
+        StatusMessage = "缓存已清理";
+    }
+
+    /// <summary>
+    /// 导出全部配置备份。
+    /// </summary>
+    [RelayCommand]
+    public async Task ExportAllBackupAsync()
+    {
+        try
+        {
+            var outputDirectory = Path.Combine(ConfigDirectory, "Exports");
+            LastBackupPath = await appBackupService.ExportBackupZipAsync(outputDirectory);
+            StatusMessage = $"已导出备份：{LastBackupPath}";
+            OpenDirectory(outputDirectory, "备份目录打开失败");
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"导出备份失败：{exception.Message}";
+        }
+    }
+
+    /// <summary>
     /// 保存应用状态。
     /// </summary>
     public async Task SaveAsync()
@@ -1294,7 +1415,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var name = workspace?.Name ?? "workspace";
         var invalidChars = Path.GetInvalidFileNameChars();
-        var safeName = new string(name.Select(character => invalidChars.Contains(character) ? '_' : character).ToArray());
+        var safeName =
+            new string(name.Select(character => invalidChars.Contains(character) ? '_' : character).ToArray());
         return $"{safeName}.dnworkspace.json";
     }
 
@@ -1318,9 +1440,12 @@ public partial class MainWindowViewModel : ViewModelBase
             ResolveAccount,
             () => Settings,
             () => ResolveMarkGroup(room),
+            () => SymbolGroups,
             CreateForwardSourceRoomOptions,
             danmuSendService,
+            avatarCacheService,
             SaveAsync);
+        _ = room.LoadAvatarAsync();
     }
 
     private BilibiliAccount? ResolveAccount(LiveRoomTabViewModel room)
@@ -1542,6 +1667,18 @@ public partial class MainWindowViewModel : ViewModelBase
         foreach (var item in lyricLibraryService.Search(State.LyricLibrary, LyricLibrarySearchText))
         {
             FilteredLyricLibrary.Add(item);
+        }
+    }
+
+    private void OpenDirectory(string directory, string errorPrefix)
+    {
+        try
+        {
+            appBackupService.OpenDirectory(directory);
+        }
+        catch (Exception exception)
+        {
+            StatusMessage = $"{errorPrefix}：{exception.Message}";
         }
     }
 

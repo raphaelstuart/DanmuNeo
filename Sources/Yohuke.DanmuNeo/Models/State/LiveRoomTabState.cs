@@ -21,6 +21,11 @@ public class LiveRoomTabState
     public string RoomName { get; set; } = "未命名直播间";
 
     /// <summary>
+    /// 主播 UID。
+    /// </summary>
+    public string OwnerUid { get; set; } = "";
+
+    /// <summary>
     /// 排序序号。
     /// </summary>
     public int SortOrder { get; set; }
@@ -29,6 +34,11 @@ public class LiveRoomTabState
     /// 标签页账号覆盖 ID。
     /// </summary>
     public string? AccountOverrideId { get; set; }
+
+    /// <summary>
+    /// 主播头像缓存路径。
+    /// </summary>
+    public string AvatarPath { get; set; } = "";
 
     /// <summary>
     /// 同传输入草稿。

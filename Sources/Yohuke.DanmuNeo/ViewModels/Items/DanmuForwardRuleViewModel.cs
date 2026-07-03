@@ -42,6 +42,11 @@ public partial class DanmuForwardRuleViewModel : ViewModelBase
         {
             var normalizedValue = value ?? "";
 
+            if (string.IsNullOrWhiteSpace(normalizedValue))
+            {
+                return;
+            }
+
             if (SourceRoomKey == normalizedValue)
             {
                 return;
@@ -69,6 +74,25 @@ public partial class DanmuForwardRuleViewModel : ViewModelBase
             }
 
             State.IsEnabled = value;
+            OnPropertyChanged();
+            onChanged(this);
+        }
+    }
+
+    /// <summary>
+    /// 转发时使用的符号组 ID。
+    /// </summary>
+    public string MarkSymbolGroupId
+    {
+        get => State.MarkSymbolGroupId;
+        set
+        {
+            if (State.MarkSymbolGroupId == value)
+            {
+                return;
+            }
+
+            State.MarkSymbolGroupId = value;
             OnPropertyChanged();
             onChanged(this);
         }
@@ -112,6 +136,5 @@ public partial class DanmuForwardRuleViewModel : ViewModelBase
         }
     }
 
-    [ObservableProperty]
-    private string statusText;
+    [ObservableProperty] private string statusText;
 }

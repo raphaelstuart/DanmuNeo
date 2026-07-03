@@ -16,6 +16,11 @@ public class WorkspaceShareRoom
     public string RoomName { get; set; } = "";
 
     /// <summary>
+    /// 主播 UID。
+    /// </summary>
+    public string OwnerUid { get; set; } = "";
+
+    /// <summary>
     /// 歌词标题。
     /// </summary>
     public string LyricTitle { get; set; } = "";

@@ -21,6 +21,16 @@ public class SuperChatItem
     public string PriceText { get; set; } = "";
 
     /// <summary>
+    /// 展示时间。
+    /// </summary>
+    public string DisplayTime => Time.ToLocalTime().ToString("HH:mm:ss");
+
+    /// <summary>
+    /// 详情行。
+    /// </summary>
+    public string DetailLine => string.IsNullOrWhiteSpace(PriceText) ? DisplayTime : $"{DisplayTime} · {PriceText}";
+
+    /// <summary>
     /// SC 内容。
     /// </summary>
     public string Content { get; set; } = "";

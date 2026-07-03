@@ -10,49 +10,49 @@
         <Border Classes="panel" Padding="14">
             <StackPanel Spacing="10">
                 <TextBlock Text="工作区"
-                           Classes="sectionTitle"/>
+                           Classes="sectionTitle" />
                 <Grid ColumnDefinitions="*,Auto,Auto"
                       ColumnSpacing="8">
                     <TextBox Text="{Binding SelectedWorkspace.Name}"
-                             Watermark="工作区名称"/>
-	                    <Button Grid.Column="1"
-	                            ToolTip.Tip="导出分享"
-	                            Classes="iconButton"
-	                            Click="ExportWorkspace_OnClick">
-	                        <LucideIcon Kind="FileDown"/>
-	                    </Button>
-	                    <Button Grid.Column="2"
-	                            ToolTip.Tip="删除工作区"
-	                            Classes="iconButton"
-	                            Command="{Binding OpenDeleteWorkspaceDialogCommand}"
-	                            CommandParameter="{Binding SelectedWorkspace}">
-	                        <LucideIcon Kind="Trash2"/>
-	                    </Button>
+                             Watermark="工作区名称" />
+                    <Button Grid.Column="1"
+                            ToolTip.Tip="导出分享"
+                            Classes="iconButton"
+                            Click="ExportWorkspace_OnClick">
+                        <LucideIcon Kind="FileDown" />
+                    </Button>
+                    <Button Grid.Column="2"
+                            ToolTip.Tip="删除工作区"
+                            Classes="iconButton"
+                            Command="{Binding OpenDeleteWorkspaceDialogCommand}"
+                            CommandParameter="{Binding SelectedWorkspace}">
+                        <LucideIcon Kind="Trash2" />
+                    </Button>
                 </Grid>
                 <TextBlock Text="{Binding SelectedWorkspace.RoomCountText}"
-                           Classes="muted"/>
+                           Classes="muted" />
             </StackPanel>
         </Border>
 
         <Border Classes="panel" Padding="14">
             <StackPanel Spacing="10">
                 <TextBlock Text="账号覆盖"
-                           Classes="sectionTitle"/>
+                           Classes="sectionTitle" />
                 <TextBlock Text="{Binding SelectedWorkspace.AccountLabel}"
-                           Classes="muted"/>
+                           Classes="muted" />
                 <WrapPanel>
-	                    <Button Margin="0,0,8,8"
-	                            Command="{Binding ClearWorkspaceAccountCommand}">
-	                        <StackPanel Orientation="Horizontal"
-	                                    Spacing="6">
-	                            <LucideIcon Kind="Globe"/>
-	                            <TextBlock Text="使用全局账号"/>
-	                        </StackPanel>
-	                    </Button>
+                    <Button Margin="0,0,8,8"
+                            Command="{Binding ClearWorkspaceAccountCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="Globe" />
+                            <TextBlock Text="使用全局账号" />
+                        </StackPanel>
+                    </Button>
                     <ItemsControl ItemsSource="{Binding Accounts}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel/>
+                                <WrapPanel />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
@@ -60,7 +60,7 @@
                                 <Button Content="{Binding Name}"
                                         Margin="0,0,8,8"
                                         Command="{Binding #Root.DataContext.SetWorkspaceAccountCommand}"
-                                        CommandParameter="{Binding}"/>
+                                        CommandParameter="{Binding}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -71,14 +71,14 @@
         <Border Classes="panel" Padding="14">
             <StackPanel Spacing="10">
                 <TextBlock Text="标签组"
-                           Classes="sectionTitle"/>
+                           Classes="sectionTitle" />
                 <TextBlock Text="当前工作区会记住这里选择的同传和歌词标签组。"
-                           Classes="muted"/>
+                           Classes="muted" />
                 <ComboBox ItemsSource="{Binding SymbolGroups}"
                           SelectedItem="{Binding SelectedWorkspaceMarkGroup}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate DataType="state:MarkSymbolGroup">
-                            <TextBlock Text="{Binding Name}"/>
+                            <TextBlock Text="{Binding Name}" />
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -88,21 +88,31 @@
         <Border Classes="panel" Padding="14">
             <StackPanel Spacing="10">
                 <TextBlock Text="直播间"
-                           Classes="sectionTitle"/>
+                           Classes="sectionTitle" />
                 <ItemsControl ItemsSource="{Binding SelectedWorkspace.Rooms}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="items:LiveRoomTabViewModel">
-                            <Grid ColumnDefinitions="*,Auto,Auto"
+                            <Grid ColumnDefinitions="*,140,140,Auto"
                                   ColumnSpacing="8"
                                   Margin="0,4">
-                                <TextBlock Text="{Binding RoomName}"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Grid.Column="1"
-                                           Text="{Binding RoomId}"
-                                           Classes="muted"/>
-                                <TextBlock Grid.Column="2"
-                                           Text="{Binding ConnectionStatus}"
-                                           Classes="muted"/>
+                                <TextBox Text="{Binding RoomName, UpdateSourceTrigger=PropertyChanged}"
+                                         Watermark="直播间名称"
+                                         LostFocus="RoomInfo_OnLostFocus" />
+                                <TextBox Grid.Column="1"
+                                         Text="{Binding RoomId, UpdateSourceTrigger=PropertyChanged}"
+                                         Watermark="直播间 ID"
+                                         LostFocus="RoomInfo_OnLostFocus" />
+                                <TextBox Grid.Column="2"
+                                         Text="{Binding OwnerUid, UpdateSourceTrigger=PropertyChanged}"
+                                         Watermark="主播 UID"
+                                         LostFocus="RoomInfo_OnLostFocus" />
+                                <Button Grid.Column="3"
+                                        ToolTip.Tip="删除直播间"
+                                        Classes="iconButton"
+                                        Command="{Binding #Root.DataContext.OpenDeleteRoomDialogCommand}"
+                                        CommandParameter="{Binding}">
+                                    <LucideIcon Kind="Trash2" />
+                                </Button>
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>

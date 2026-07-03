@@ -448,6 +448,12 @@ public class AppStateService
                     {
                         rule.Id = Guid.NewGuid().ToString("N");
                     }
+
+                    if (!string.IsNullOrWhiteSpace(rule.MarkSymbolGroupId) &&
+                        state.Settings.MarkGroups.All(group => group.Id != rule.MarkSymbolGroupId))
+                    {
+                        rule.MarkSymbolGroupId = "";
+                    }
                 }
             }
 

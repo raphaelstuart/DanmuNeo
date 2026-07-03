@@ -12,6 +12,7 @@ public class BilibiliApi : BaseApi
     private readonly List<string> cookies = [];
     private readonly List<string> csrfs = [];
     private readonly int rnd;
+    private readonly BilibiliWbiSigner signer = new();
 
     /// <summary>
     /// 初始化 B 站 API。
@@ -111,6 +112,53 @@ public class BilibiliApi : BaseApi
                 ["room_id"] = roomId
             },
             CreateAccountHeaders(number),
+            timeout,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// 获取用户公开资料。
+    /// </summary>
+    public Task<ApiResponse<BilibiliUserCardContainerData>> GetUserCardContainerAsync(
+        long uid,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var headers = CreateDefaultHeaders();
+        headers["Referer"] = $"https://space.bilibili.com/{uid}";
+
+        return GetJsonAsync<ApiResponse<BilibiliUserCardContainerData>>(
+            "https://api.bilibili.com/x/web-interface/card",
+            new Dictionary<string, object?>
+            {
+                ["mid"] = uid
+            },
+            headers,
+            timeout,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// 获取用户公开资料。
+    /// </summary>
+    public async Task<ApiResponse<BilibiliUserCardData>> GetUserCardAsync(
+        long uid,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var headers = CreateDefaultHeaders();
+        headers["Referer"] = $"https://space.bilibili.com/{uid}";
+        var parameters = await signer.FillAsync(
+            new Dictionary<string, object?>
+            {
+                ["mid"] = uid
+            },
+            cancellationToken);
+
+        return await GetJsonAsync<ApiResponse<BilibiliUserCardData>>(
+            "https://api.bilibili.com/x/space/wbi/acc/info",
+            parameters,
+            headers,
             timeout,
             cancellationToken);
     }

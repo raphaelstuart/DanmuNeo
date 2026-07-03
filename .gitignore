@@ -86,6 +86,7 @@ x86/
 
 # .NET build artifacts
 artifacts/
+Artifacts/
 
 # Publish output
 publish/

@@ -1,0 +1,100 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Yohuke.DanmuNeo.Views.Components.MiscSettingsView"
+             x:CompileBindings="False">
+    <StackPanel Spacing="14"
+                IsVisible="{Binding IsMiscSettingsSelected}">
+        <Border Classes="panel" Padding="14">
+            <StackPanel Spacing="10">
+                <TextBlock Text="应用信息"
+                           Classes="sectionTitle"/>
+                <Grid ColumnDefinitions="120,*"
+                      RowDefinitions="Auto,Auto"
+                      ColumnSpacing="12"
+                      RowSpacing="8">
+                    <TextBlock Text="当前版本"
+                               Classes="muted"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding AppVersion}"/>
+                    <TextBlock Grid.Row="1"
+                               Text="配置目录"
+                               Classes="muted"/>
+                    <TextBox Grid.Row="1"
+                             Grid.Column="1"
+                             IsReadOnly="True"
+                             Text="{Binding ConfigDirectory}"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                    <Button Command="{Binding OpenConfigDirectoryCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="FolderOpen"/>
+                            <TextBlock Text="打开配置目录"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Classes="primaryButton"
+                            Command="{Binding ExportAllBackupCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="Archive"/>
+                            <TextBlock Text="导出全部备份"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+                <TextBlock Text="{Binding LastBackupPath}"
+                           Classes="muted"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasLastBackupPath}"/>
+            </StackPanel>
+        </Border>
+
+        <Border Classes="panel" Padding="14">
+            <StackPanel Spacing="10">
+                <TextBlock Text="缓存"
+                           Classes="sectionTitle"/>
+                <Grid ColumnDefinitions="120,*"
+                      RowDefinitions="Auto,Auto"
+                      ColumnSpacing="12"
+                      RowSpacing="8">
+                    <TextBlock Text="缓存目录"
+                               Classes="muted"/>
+                    <TextBox Grid.Column="1"
+                             IsReadOnly="True"
+                             Text="{Binding CacheDirectory}"/>
+                    <TextBlock Grid.Row="1"
+                               Text="缓存体积"
+                               Classes="muted"/>
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="1"
+                               Text="{Binding CacheSizeText}"
+                               VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                    <Button Command="{Binding RefreshCacheSizeCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="RefreshCcw"/>
+                            <TextBlock Text="刷新体积"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding OpenCacheDirectoryCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="FolderOpen"/>
+                            <TextBlock Text="打开缓存目录"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding ClearCacheCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="Trash2"/>
+                            <TextBlock Text="清理缓存"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

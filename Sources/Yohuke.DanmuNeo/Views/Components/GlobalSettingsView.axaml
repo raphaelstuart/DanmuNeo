@@ -76,6 +76,16 @@
                     <CheckBox Content="屏蔽时重发"
                               IsChecked="{Binding Settings.ResendWhenShielded}"/>
                 </StackPanel>
+                <Grid ColumnDefinitions="*,*"
+                      ColumnSpacing="8">
+                    <TextBox Watermark="弹幕/SC 插入开符号"
+                             Text="{Binding Settings.DanmuInsertOpenMark}"/>
+                    <TextBox Grid.Column="1"
+                             Watermark="弹幕/SC 插入闭符号"
+                             Text="{Binding Settings.DanmuInsertCloseMark}"/>
+                </Grid>
+                <TextBlock Text="示例：点击内容 你好，插入 &quot;你好&quot;"
+                           Classes="muted"/>
             </StackPanel>
         </Border>
     </StackPanel>

@@ -33,6 +33,7 @@ public class WorkspaceShareService
             {
                 RoomId = room.RoomId,
                 RoomName = room.RoomName,
+                OwnerUid = room.OwnerUid,
                 LyricTitle = room.LyricTitle,
                 LyricText = room.LyricText
             }).ToList()
@@ -42,7 +43,8 @@ public class WorkspaceShareService
     /// <summary>
     /// 导出分享包到指定文件。
     /// </summary>
-    public async Task ExportAsync(WorkspaceState workspace, AppSettings settings, string filePath, CancellationToken cancellationToken = default)
+    public async Task ExportAsync(WorkspaceState workspace, AppSettings settings, string filePath,
+        CancellationToken cancellationToken = default)
     {
         var package = CreatePackage(workspace, settings);
         await using var stream = File.Create(filePath);
@@ -52,10 +54,12 @@ public class WorkspaceShareService
     /// <summary>
     /// 从文件导入分享包并创建工作区。
     /// </summary>
-    public async Task<WorkspaceState> ImportAsync(IEnumerable<WorkspaceState> existingWorkspaces, string filePath, CancellationToken cancellationToken = default)
+    public async Task<WorkspaceState> ImportAsync(IEnumerable<WorkspaceState> existingWorkspaces, string filePath,
+        CancellationToken cancellationToken = default)
     {
         await using var stream = File.OpenRead(filePath);
-        var package = await JsonSerializer.DeserializeAsync<WorkspaceSharePackage>(stream, JSON_OPTIONS, cancellationToken)
+        var package =
+            await JsonSerializer.DeserializeAsync<WorkspaceSharePackage>(stream, JSON_OPTIONS, cancellationToken)
             ?? throw new InvalidDataException("工作区分享包为空。");
 
         return CreateWorkspace(existingWorkspaces, package);
@@ -67,7 +71,8 @@ public class WorkspaceShareService
     public WorkspaceState CreateWorkspace(IEnumerable<WorkspaceState> existingWorkspaces, WorkspaceSharePackage package)
     {
         var names = existingWorkspaces.Select(workspace => workspace.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var workspaceName = GetUniqueName(string.IsNullOrWhiteSpace(package.WorkspaceName) ? "导入工作区" : package.WorkspaceName, names);
+        var workspaceName =
+            GetUniqueName(string.IsNullOrWhiteSpace(package.WorkspaceName) ? "导入工作区" : package.WorkspaceName, names);
 
         return new()
         {
@@ -79,6 +84,7 @@ public class WorkspaceShareService
                 Id = Guid.NewGuid().ToString("N"),
                 RoomId = room.RoomId,
                 RoomName = string.IsNullOrWhiteSpace(room.RoomName) ? room.RoomId : room.RoomName,
+                OwnerUid = room.OwnerUid,
                 AccountOverrideId = null,
                 InputDraft = "",
                 LyricTitle = room.LyricTitle,

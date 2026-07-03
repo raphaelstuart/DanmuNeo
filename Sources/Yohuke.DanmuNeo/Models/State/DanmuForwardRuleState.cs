@@ -26,6 +26,11 @@ public class DanmuForwardRuleState
     public string SourceRoomStateId { get; set; } = "";
 
     /// <summary>
+    /// 转发时使用的符号组 ID。
+    /// </summary>
+    public string MarkSymbolGroupId { get; set; } = "";
+
+    /// <summary>
     /// 监听发送人 UID。
     /// </summary>
     public string SenderUid { get; set; } = "";

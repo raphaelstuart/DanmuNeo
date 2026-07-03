@@ -16,6 +16,14 @@ public class DanmuForwardServiceTests
     }
 
     [Fact]
+    public void ValidateRequiresUidOrPattern()
+    {
+        var service = new DanmuForwardService();
+
+        Assert.NotEmpty(service.Validate(new()));
+    }
+
+    [Fact]
     public void IsMatchCanFilterByUidOnly()
     {
         var service = new DanmuForwardService();
@@ -66,6 +74,52 @@ public class DanmuForwardServiceTests
         };
 
         Assert.NotEmpty(service.Validate(rule));
+    }
+
+    [Fact]
+    public void CreateForwardMessageUsesBoundMarkSymbolGroup()
+    {
+        var service = new DanmuForwardService();
+        var fallback = new MarkSymbolGroup
+        {
+            Id = "fallback",
+            TranslateOpenMark = "【",
+            TranslateCloseMark = "】"
+        };
+        var bound = new MarkSymbolGroup
+        {
+            Id = "bound",
+            TranslateOpenMark = "「",
+            TranslateCloseMark = "」"
+        };
+        var rule = new DanmuForwardRuleState
+        {
+            MarkSymbolGroupId = "bound"
+        };
+
+        var message = service.CreateForwardMessage(CreateMessage(42, "转发内容"), rule, fallback, [fallback, bound]);
+
+        Assert.Equal("「转发内容」", message);
+    }
+
+    [Fact]
+    public void CreateForwardMessageFallsBackToWorkspaceMarkGroup()
+    {
+        var service = new DanmuForwardService();
+        var fallback = new MarkSymbolGroup
+        {
+            Id = "fallback",
+            TranslateOpenMark = "【",
+            TranslateCloseMark = "】"
+        };
+        var rule = new DanmuForwardRuleState
+        {
+            MarkSymbolGroupId = "missing"
+        };
+
+        var message = service.CreateForwardMessage(CreateMessage(42, "转发内容"), rule, fallback, [fallback]);
+
+        Assert.Equal("【转发内容】", message);
     }
 
     private static BilibiliDanmuMessage CreateMessage(long uid, string content)
