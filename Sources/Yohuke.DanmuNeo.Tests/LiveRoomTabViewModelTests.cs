@@ -61,6 +61,20 @@ public class LiveRoomTabViewModelTests
     }
 
     [Fact]
+    public void ClearInputDraftClearsState()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            InputDraft = "待发送"
+        };
+
+        viewModel.ClearInputDraft();
+
+        Assert.Equal("", viewModel.InputDraft);
+        Assert.Equal("", viewModel.State.InputDraft);
+    }
+
+    [Fact]
     public void ApplyLyricParsesInput()
     {
         var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
@@ -260,6 +274,66 @@ public class LiveRoomTabViewModelTests
     }
 
     [Fact]
+    public void SeekLyricLineStartMovesPlaybackToSelectedLine()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            LyricInput = """
+                         [00:01.00]第一句
+                         [00:03.00]第二句
+                         [00:07.00]第三句
+                         """
+        };
+        viewModel.ApplyLyric();
+
+        viewModel.SeekLyricLineStart(viewModel.Lyrics[1]);
+
+        Assert.Equal(3, viewModel.LyricPlaybackPositionSeconds);
+        Assert.Equal(viewModel.Lyrics[1], viewModel.ActiveLyricLine);
+        Assert.Equal(0, viewModel.Lyrics[1].Progress);
+    }
+
+    [Fact]
+    public void SeekLyricLineStartMovesPlaybackToLastLineStart()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            LyricInput = """
+                         [00:01.00]第一句
+                         [00:03.00]第二句
+                         [00:07.00]第三句
+                         """
+        };
+        viewModel.ApplyLyric();
+
+        viewModel.SeekLyricLineStart(viewModel.Lyrics[2]);
+
+        Assert.Equal(7, viewModel.LyricPlaybackPositionSeconds);
+        Assert.Equal(viewModel.Lyrics[2], viewModel.ActiveLyricLine);
+        Assert.Equal(0, viewModel.Lyrics[2].Progress);
+    }
+
+    [Fact]
+    public void SeekLyricLineStartIgnoresLineWithoutTimeline()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            LyricInput = """
+                         [00:01.00]第一句
+                         无时间轴
+                         """
+        };
+        viewModel.ApplyLyric();
+        viewModel.AdjustLyricPlaybackPosition(1);
+        var untimedLine = viewModel.Lyrics.Single(line => line.TimeSeconds < 0);
+
+        viewModel.SeekLyricLineStart(untimedLine);
+
+        Assert.Equal(2, viewModel.LyricPlaybackPositionSeconds);
+        Assert.Equal(viewModel.Lyrics[0], viewModel.ActiveLyricLine);
+    }
+
+    [Fact]
     public async Task SendCurrentLyricMarksLineSent()
     {
         var sendService = new FakeDanmuSendService();
@@ -286,6 +360,31 @@ public class LiveRoomTabViewModelTests
 
         var autoTask = viewModel.ToggleAutoLyricAsync();
         await Task.Delay(100);
+        viewModel.StopAutoLyric();
+        await autoTask;
+
+        Assert.Empty(sendService.SentMessages);
+    }
+
+    [Fact]
+    public async Task StartAutoLyricStartsWithoutTogglingExistingSessionOff()
+    {
+        var sendService = new FakeDanmuSendService();
+        var viewModel = CreateConfiguredViewModel(new AppSettings(), sendService);
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:05.00]歌词";
+        viewModel.ApplyLyric();
+        viewModel.Lyrics[0].IsSent = true;
+
+        var autoTask = viewModel.StartAutoLyricAsync();
+        await Task.Delay(100);
+
+        Assert.True(viewModel.IsLyricAutoSending);
+
+        await viewModel.StartAutoLyricAsync();
+
+        Assert.True(viewModel.IsLyricAutoSending);
+
         viewModel.StopAutoLyric();
         await autoTask;
 
@@ -478,6 +577,42 @@ public class LiveRoomTabViewModelTests
         Assert.Equal("http://127.0.0.1/player?token=token-2", viewModel.LivePlayerUrl);
         Assert.NotEqual(firstUrl, viewModel.LivePlayerUrl);
         Assert.Equal(["token-1"], livePlayerService.RevokedTokens);
+    }
+
+    [Fact]
+    public async Task PlayLiveAttemptsListeningWhenAutoStartEnabled()
+    {
+        var viewModel = CreateConfiguredViewModel(
+            new()
+            {
+                AutoStartListeningWithLivePlayer = true
+            },
+            liveStreamService: new FakeBilibiliLiveStreamService(),
+            livePlayerService: new FakeLivePlayerService());
+        viewModel.RoomId = "100";
+
+        await viewModel.PlayLiveAsync();
+
+        Assert.True(viewModel.IsLivePlayerVisible);
+        Assert.Equal("缺少账号或房间", viewModel.ConnectionStatus);
+    }
+
+    [Fact]
+    public async Task PlayLiveDoesNotStartListeningWhenAutoStartDisabled()
+    {
+        var viewModel = CreateConfiguredViewModel(
+            new()
+            {
+                AutoStartListeningWithLivePlayer = false
+            },
+            liveStreamService: new FakeBilibiliLiveStreamService(),
+            livePlayerService: new FakeLivePlayerService());
+        viewModel.RoomId = "100";
+
+        await viewModel.PlayLiveAsync();
+
+        Assert.True(viewModel.IsLivePlayerVisible);
+        Assert.Equal("未连接", viewModel.ConnectionStatus);
     }
 
     private static LiveRoomTabViewModel CreateConfiguredViewModel(

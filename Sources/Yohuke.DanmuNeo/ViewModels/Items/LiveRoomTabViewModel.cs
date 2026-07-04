@@ -600,6 +600,15 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 清空同传输入。
+    /// </summary>
+    [RelayCommand]
+    public void ClearInputDraft()
+    {
+        InputDraft = "";
+    }
+
+    /// <summary>
     /// 手动发送当前歌词。
     /// </summary>
     [RelayCommand]
@@ -647,6 +656,19 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 定位歌词播放位置到指定歌词行开头。
+    /// </summary>
+    public void SeekLyricLineStart(LyricLineState? line)
+    {
+        if (line is null || line.TimeSeconds < 0 || !Lyrics.Contains(line))
+        {
+            return;
+        }
+
+        SetLyricPlaybackPosition(line.TimeSeconds);
+    }
+
+    /// <summary>
     /// 开始或暂停歌词自动发送。
     /// </summary>
     [RelayCommand]
@@ -656,6 +678,20 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         {
             lyricTokenSource?.Cancel();
             IsLyricAutoSending = false;
+            return;
+        }
+
+        await StartAutoLyricAsync();
+    }
+
+    /// <summary>
+    /// 开始歌词自动发送。
+    /// </summary>
+    [RelayCommand]
+    public async Task StartAutoLyricAsync()
+    {
+        if (IsLyricAutoSending)
+        {
             return;
         }
 
@@ -1154,6 +1190,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             livePlayerToken = session.Token;
             LivePlayerUrl = session.PlayerUrl;
             IsLivePlayerVisible = true;
+            StartListeningWithLivePlayerIfNeeded();
         }
         catch
         {
@@ -1162,6 +1199,16 @@ public partial class LiveRoomTabViewModel : ViewModelBase
                 IsLivePlayerVisible = false;
             }
         }
+    }
+
+    private void StartListeningWithLivePlayerIfNeeded()
+    {
+        if (IsListening || getSettings?.Invoke().AutoStartListeningWithLivePlayer != true)
+        {
+            return;
+        }
+
+        StartListening();
     }
 
     private static double NormalizeLivePlayerVolumePercent(double value)

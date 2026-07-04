@@ -489,6 +489,38 @@
         <Setter Property="BorderBrush" Value="{DynamicResource AppPrimaryBrush}" />
     </Style>
 
+    <Style Selector="Grid.shortcutBindingRow">
+        <Setter Property="Margin" Value="0,1" />
+    </Style>
+
+    <Style Selector="Border.shortcutGesture">
+        <Setter Property="Background" Value="{DynamicResource AppSidebarHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="8,4" />
+    </Style>
+
+    <Style Selector="Border.shortcutGesture.recording">
+        <Setter Property="BorderBrush" Value="{DynamicResource AppPrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="2" />
+    </Style>
+
+    <Style Selector="Border.shortcutGesture.conflicted">
+        <Setter Property="BorderBrush" Value="#DC2626" />
+    </Style>
+
+    <Style Selector="TextBlock.shortcutConflictText">
+        <Setter Property="Foreground" Value="#DC2626" />
+        <Setter Property="FontSize" Value="{DynamicResource AppFontSizeCaption}" />
+    </Style>
+
+    <Style Selector="TextBlock.shortcutRecordingText">
+        <Setter Property="Foreground" Value="{DynamicResource AppPrimaryBrush}" />
+        <Setter Property="FontSize" Value="{DynamicResource AppFontSizeCaption}" />
+    </Style>
+
     <Style Selector="Button.themeCardButton">
         <Setter Property="Width" Value="260" />
         <Setter Property="Background" Value="Transparent" />

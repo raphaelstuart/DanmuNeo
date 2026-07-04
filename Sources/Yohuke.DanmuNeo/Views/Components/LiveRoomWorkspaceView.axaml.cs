@@ -47,6 +47,22 @@ public partial class LiveRoomWorkspaceView : UserControl
         base.OnDetachedFromVisualTree(e);
     }
 
+    /// <summary>
+    /// 通过快捷键聚焦同传输入框。
+    /// </summary>
+    public void FocusInputDraftFromShortcut()
+    {
+        FocusInputDraft();
+    }
+
+    /// <summary>
+    /// 通过快捷键清空同传输入框。
+    /// </summary>
+    public void ClearInputDraftFromShortcut()
+    {
+        ClearInputDraft();
+    }
+
     private void InputDraft_OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || DataContext is not LiveRoomTabViewModel room)
@@ -83,6 +99,18 @@ public partial class LiveRoomWorkspaceView : UserControl
         }
 
         InsertFeedContent(room, item.Content);
+    }
+
+    private void LyricLine_OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is not LyricLineState line ||
+            DataContext is not LiveRoomTabViewModel room)
+        {
+            return;
+        }
+
+        room.SeekLyricLineStart(line);
+        e.Handled = true;
     }
 
     private void InsertFeedContent(LiveRoomTabViewModel room, string content)
@@ -162,21 +190,33 @@ public partial class LiveRoomWorkspaceView : UserControl
 
     private void LiveRoomWorkspaceView_OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
-        if (!CanHandleLyricSeekKey(e))
+        if (!TryHandleShortcut(e))
         {
             return;
         }
 
         e.Handled = true;
-        var offsetSeconds = e.Key == Key.Left ? -0.5 : 0.5;
+    }
 
-        if (lyricSeekRepeatTimer?.IsEnabled == true && lyricSeekRepeatKey == e.Key)
+    private bool TryHandleShortcut(KeyEventArgs e)
+    {
+        if (currentRoom is null ||
+            GetMainWindowViewModel() is not { } viewModel)
         {
-            return;
+            return false;
         }
 
-        currentRoom?.AdjustLyricPlaybackPosition(offsetSeconds);
-        StartLyricSeekRepeat(e.Key, offsetSeconds);
+        var actionKey = ShortcutBindingService.GetTriggeredActionKey(
+            viewModel.Settings.ShortcutBindings,
+            e.Key,
+            e.KeyModifiers);
+
+        if (actionKey is null || IsTextInputEvent(e) && actionKey != ShortcutActionKeys.INPUT_CLEAR_DRAFT)
+        {
+            return false;
+        }
+
+        return ExecuteShortcut(actionKey, e.Key);
     }
 
     private void LiveRoomWorkspaceView_OnPreviewKeyUp(object? sender, KeyEventArgs e)
@@ -187,17 +227,78 @@ public partial class LiveRoomWorkspaceView : UserControl
         }
     }
 
-    private bool CanHandleLyricSeekKey(KeyEventArgs e)
+    private bool ExecuteShortcut(string actionKey, Key key)
     {
-        if (currentRoom is null ||
-            e.Key is not (Key.Left or Key.Right) ||
-            !e.KeyModifiers.HasFlag(KeyModifiers.Alt) ||
-            IsTextInputEvent(e))
+        if (currentRoom is null)
         {
             return false;
         }
 
-        return currentRoom.Lyrics.Count > 0;
+        switch (actionKey)
+        {
+            case ShortcutActionKeys.LIVE_ROOM_START_LISTENING:
+                currentRoom.StartListening();
+                return true;
+            case ShortcutActionKeys.LIVE_ROOM_STOP_LISTENING:
+                currentRoom.StopListening();
+                return true;
+            case ShortcutActionKeys.LIVE_PLAYER_START:
+                _ = currentRoom.PlayLiveAsync();
+                return true;
+            case ShortcutActionKeys.LIVE_PLAYER_STOP:
+                currentRoom.StopLivePlayer();
+                return true;
+            case ShortcutActionKeys.LIVE_PLAYER_CHASE:
+                _ = currentRoom.ChaseLiveAsync();
+                return true;
+            case ShortcutActionKeys.INPUT_FOCUS_DRAFT:
+                FocusInputDraft();
+                return true;
+            case ShortcutActionKeys.INPUT_CLEAR_DRAFT:
+                ClearInputDraft();
+                return true;
+            case ShortcutActionKeys.LYRIC_START_SENDING:
+                _ = currentRoom.StartAutoLyricAsync();
+                return true;
+            case ShortcutActionKeys.LYRIC_STOP_SENDING:
+                currentRoom.StopAutoLyric();
+                return true;
+            case ShortcutActionKeys.LYRIC_SEEK_BACKWARD:
+                StartLyricSeekShortcut(key, -0.5);
+                return true;
+            case ShortcutActionKeys.LYRIC_SEEK_FORWARD:
+                StartLyricSeekShortcut(key, 0.5);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void FocusInputDraft()
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            InputDraftTextBox.Focus();
+            InputDraftTextBox.CaretIndex = InputDraftTextBox.Text?.Length ?? 0;
+        }, DispatcherPriority.Background);
+    }
+
+    private void ClearInputDraft()
+    {
+        currentRoom?.ClearInputDraft();
+        InputDraftTextBox.Text = "";
+        InputDraftTextBox.CaretIndex = 0;
+    }
+
+    private void StartLyricSeekShortcut(Key key, double offsetSeconds)
+    {
+        if (lyricSeekRepeatTimer?.IsEnabled == true && lyricSeekRepeatKey == key)
+        {
+            return;
+        }
+
+        currentRoom?.AdjustLyricPlaybackPosition(offsetSeconds);
+        StartLyricSeekRepeat(key, offsetSeconds);
     }
 
     private static bool IsTextInputEvent(KeyEventArgs e)

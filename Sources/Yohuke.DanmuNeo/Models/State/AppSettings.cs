@@ -41,6 +41,16 @@ public class AppSettings
     public List<MarkSymbolGroup> MarkGroups { get; set; } = [];
 
     /// <summary>
+    /// 快捷键绑定。
+    /// </summary>
+    public List<ShortcutBindingState> ShortcutBindings { get; set; } = [];
+
+    /// <summary>
+    /// 快捷键绑定版本。
+    /// </summary>
+    public int ShortcutBindingsVersion { get; set; }
+
+    /// <summary>
     /// 默认歌词来源。
     /// </summary>
     public string DefaultLyricSource { get; set; } = "wy";
@@ -64,6 +74,11 @@ public class AppSettings
     /// 弹幕被屏蔽时是否重发。
     /// </summary>
     public bool ResendWhenShielded { get; set; } = true;
+
+    /// <summary>
+    /// 播放或追帧时是否自动开启监听。
+    /// </summary>
+    public bool AutoStartListeningWithLivePlayer { get; set; } = true;
 
     /// <summary>
     /// QQ 音乐 Cookie。

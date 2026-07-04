@@ -83,6 +83,71 @@ public class AppStateServiceTests
         Assert.Equal(2400, loaded.Settings.WindowHeight);
         Assert.Equal(300, loaded.Settings.WorkspaceLiveColumnWidth);
         Assert.Equal(500, loaded.Settings.WorkspaceToolColumnWidth);
+        Assert.Equal(ShortcutActionCatalog.Actions.Count, loaded.Settings.ShortcutBindings.Count);
+    }
+
+    [Fact]
+    public void SaveAndLoadNormalizesShortcutBindings()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        var state = new AppState
+        {
+            Settings = new()
+            {
+                ShortcutBindings =
+                [
+                    new()
+                    {
+                        ActionKey = ShortcutActionKeys.LIVE_PLAYER_CHASE,
+                        GestureText = "NotAKey",
+                        IsEnabled = true
+                    },
+                    new()
+                    {
+                        ActionKey = ShortcutActionKeys.INPUT_CLEAR_DRAFT,
+                        GestureText = "",
+                        IsEnabled = false
+                    }
+                ]
+            }
+        };
+
+        service.Save(state);
+        var loaded = service.Load();
+        var chaseBinding = loaded.Settings.ShortcutBindings
+            .Single(binding => binding.ActionKey == ShortcutActionKeys.LIVE_PLAYER_CHASE);
+        var clearBinding = loaded.Settings.ShortcutBindings
+            .Single(binding => binding.ActionKey == ShortcutActionKeys.INPUT_CLEAR_DRAFT);
+        var defaultGestureText = ShortcutActionCatalog.Actions
+            .Single(action => action.ActionKey == ShortcutActionKeys.LIVE_PLAYER_CHASE)
+            .DefaultGestureText;
+
+        Assert.Equal(defaultGestureText, chaseBinding.GestureText);
+        Assert.Equal("", clearBinding.GestureText);
+        Assert.False(clearBinding.IsEnabled);
+        Assert.Equal(ShortcutActionCatalog.Actions.Count, loaded.Settings.ShortcutBindings.Count);
+    }
+
+    [Fact]
+    public void LoadAddsShortcutBindingsWhenOldSettingsFileDoesNotHaveThem()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var service = new AppStateService(directory);
+        File.WriteAllText(service.SettingsFilePath, """{"SendIntervalMs":650}""");
+
+        var loaded = service.Load();
+
+        Assert.Equal(650, loaded.Settings.SendIntervalMs);
+        Assert.Equal(ShortcutActionCatalog.Actions.Count, loaded.Settings.ShortcutBindings.Count);
+        var defaultGestureText = ShortcutActionCatalog.Actions
+            .Single(action => action.ActionKey == ShortcutActionKeys.LYRIC_SEEK_BACKWARD)
+            .DefaultGestureText;
+        Assert.Contains(
+            loaded.Settings.ShortcutBindings,
+            binding => binding.ActionKey == ShortcutActionKeys.LYRIC_SEEK_BACKWARD &&
+                       binding.GestureText == defaultGestureText);
     }
 
     [Fact]

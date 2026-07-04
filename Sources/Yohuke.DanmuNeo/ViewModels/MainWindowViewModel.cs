@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using Avalonia.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Yohuke.DanmuNeo.Models.BrowserLogin;
@@ -52,15 +53,18 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         avatarCacheService = new(appDirectoryService);
         State = stateService.Load();
         Settings = State.Settings;
+        ShortcutBindingService.Normalize(Settings);
         Accounts = new(State.Accounts);
         SymbolGroups = new(Settings.MarkGroups.OrderBy(group => group.SortOrder));
         LyricLibrary = new(State.LyricLibrary);
         FilteredLyricLibrary = new(lyricLibraryService.Search(State.LyricLibrary, ""));
         MusicLyricSearchResults = [];
+        ShortcutBindingGroups = [];
         Workspaces = new(State.Workspaces.OrderBy(workspace => workspace.SortOrder).Select(CreateWorkspaceViewModel));
         selectedWorkspace = Workspaces.FirstOrDefault(workspace => workspace.Id == State.SelectedWorkspaceId) ??
                             Workspaces.FirstOrDefault();
         RefreshThemeModeOptions();
+        RefreshShortcutBindingGroups();
         RefreshSettingsSectionOptions();
         RefreshCacheSize();
         RefreshTreeSelection();
@@ -109,6 +113,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<MusicLyricSearchResult> MusicLyricSearchResults { get; }
 
     /// <summary>
+    /// 快捷键绑定分组。
+    /// </summary>
+    public ObservableCollection<ShortcutBindingGroupViewModel> ShortcutBindingGroups { get; }
+
+    /// <summary>
     /// 主题选项。
     /// </summary>
     public IReadOnlyList<ThemeModeOption> ThemeModeOptions { get; } =
@@ -127,6 +136,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         new("account", "账号登录", "B 站与音乐账号绑定"),
         new("lyricLibrary", "歌词库", "本地与音乐 API 导入"),
         new("marks", "标签组", "同传与歌词开闭标记"),
+        new("shortcuts", "快捷键", "直播间操作绑定"),
         new("workspace", "工作区设置", "名称、账号覆盖与分享"),
         new("misc", "杂项", "版本、目录与备份")
     ];
@@ -172,6 +182,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(IsAccountSettingsSelected));
             OnPropertyChanged(nameof(IsLyricLibrarySettingsSelected));
             OnPropertyChanged(nameof(IsMarkSettingsSelected));
+            OnPropertyChanged(nameof(IsShortcutSettingsSelected));
             OnPropertyChanged(nameof(IsWorkspaceSettingsSelected));
             OnPropertyChanged(nameof(IsMiscSettingsSelected));
         }
@@ -277,6 +288,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// 是否正在显示标签组设置。
     /// </summary>
     public bool IsMarkSettingsSelected => selectedSettingsSectionKey == "marks";
+
+    /// <summary>
+    /// 是否正在显示快捷键设置。
+    /// </summary>
+    public bool IsShortcutSettingsSelected => selectedSettingsSectionKey == "shortcuts";
 
     /// <summary>
     /// 是否正在显示工作区设置。
@@ -785,6 +801,113 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         SelectedSettingsSection = option;
+    }
+
+    /// <summary>
+    /// 开始录制快捷键。
+    /// </summary>
+    [RelayCommand]
+    public void BeginRecordShortcut(ShortcutBindingViewModel? binding)
+    {
+        if (binding is null)
+        {
+            return;
+        }
+
+        CancelShortcutRecording();
+        binding.IsRecording = true;
+        StatusMessage = $"按下新的快捷键：{binding.Name}";
+        OnPropertyChanged(nameof(IsRecordingShortcut));
+    }
+
+    /// <summary>
+    /// 清除快捷键。
+    /// </summary>
+    [RelayCommand]
+    public void ClearShortcut(ShortcutBindingViewModel? binding)
+    {
+        if (binding is null)
+        {
+            return;
+        }
+
+        binding.IsRecording = false;
+        binding.SetGestureText("", false);
+        StatusMessage = $"已清除快捷键：{binding.Name}";
+        OnPropertyChanged(nameof(IsRecordingShortcut));
+    }
+
+    /// <summary>
+    /// 恢复默认快捷键。
+    /// </summary>
+    [RelayCommand]
+    public void ResetShortcutToDefault(ShortcutBindingViewModel? binding)
+    {
+        if (binding is null)
+        {
+            return;
+        }
+
+        binding.IsRecording = false;
+        binding.SetGestureText(binding.DefaultGestureText, true);
+        StatusMessage = $"已恢复默认快捷键：{binding.Name}";
+        OnPropertyChanged(nameof(IsRecordingShortcut));
+    }
+
+    /// <summary>
+    /// 是否正在录制快捷键。
+    /// </summary>
+    public bool IsRecordingShortcut => EnumerateShortcutBindings().Any(binding => binding.IsRecording);
+
+    /// <summary>
+    /// 应用录制到的快捷键。
+    /// </summary>
+    public bool ApplyRecordedShortcut(Key key, KeyModifiers modifiers)
+    {
+        var binding = EnumerateShortcutBindings().FirstOrDefault(item => item.IsRecording);
+
+        if (binding is null)
+        {
+            return false;
+        }
+
+        if (key == Key.Escape)
+        {
+            CancelShortcutRecording();
+            StatusMessage = "已取消快捷键录制";
+            return true;
+        }
+
+        if (key is Key.Back or Key.Delete)
+        {
+            ClearShortcut(binding);
+            return true;
+        }
+
+        if (!ShortcutBindingService.TryCreateGestureText(key, modifiers, out var gestureText))
+        {
+            StatusMessage = "请按下包含主按键的快捷键";
+            return true;
+        }
+
+        binding.IsRecording = false;
+        binding.SetGestureText(gestureText, true);
+        StatusMessage = $"已设置快捷键：{binding.Name} {gestureText}";
+        OnPropertyChanged(nameof(IsRecordingShortcut));
+        return true;
+    }
+
+    /// <summary>
+    /// 取消快捷键录制。
+    /// </summary>
+    public void CancelShortcutRecording()
+    {
+        foreach (var binding in EnumerateShortcutBindings())
+        {
+            binding.IsRecording = false;
+        }
+
+        OnPropertyChanged(nameof(IsRecordingShortcut));
     }
 
     /// <summary>
@@ -1664,6 +1787,49 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             option.IsSelected = option.Key == selectedSettingsSectionKey;
         }
+    }
+
+    private void RefreshShortcutBindingGroups()
+    {
+        ShortcutBindingGroups.Clear();
+
+        foreach (var group in ShortcutActionCatalog.Actions.GroupBy(action => new
+                 {
+                     action.GroupKey,
+                     action.GroupName
+                 }))
+        {
+            var bindings = group
+                .Select(action => new ShortcutBindingViewModel(
+                    action,
+                    Settings.ShortcutBindings.First(binding => binding.ActionKey == action.ActionKey),
+                    OnShortcutBindingChanged))
+                .ToList();
+            ShortcutBindingGroups.Add(new(group.Key.GroupName, bindings));
+        }
+
+        RefreshShortcutConflicts();
+    }
+
+    private void OnShortcutBindingChanged(ShortcutBindingViewModel binding)
+    {
+        RefreshShortcutConflicts();
+        _ = SaveAsync();
+    }
+
+    private void RefreshShortcutConflicts()
+    {
+        var conflictActionKeys = ShortcutBindingService.GetConflictActionKeys(Settings.ShortcutBindings);
+
+        foreach (var binding in EnumerateShortcutBindings())
+        {
+            binding.SetConflicted(conflictActionKeys.Contains(binding.ActionKey));
+        }
+    }
+
+    private IEnumerable<ShortcutBindingViewModel> EnumerateShortcutBindings()
+    {
+        return ShortcutBindingGroups.SelectMany(group => group.Bindings);
     }
 
     private LyricLibraryItem UpsertLyricLibraryItem(LyricLibraryItem item)

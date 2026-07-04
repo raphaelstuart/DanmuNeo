@@ -1,0 +1,94 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:items="clr-namespace:Yohuke.DanmuNeo.ViewModels.Items"
+             x:Class="Yohuke.DanmuNeo.Views.Components.ShortcutSettingsView"
+             x:CompileBindings="False"
+             x:Name="Root"
+             Focusable="True">
+    <StackPanel Spacing="14"
+                IsVisible="{Binding IsShortcutSettingsSelected}">
+        <Border Classes="panel"
+                Padding="14">
+            <ItemsControl ItemsSource="{Binding ShortcutBindingGroups}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Spacing="18" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="items:ShortcutBindingGroupViewModel">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{Binding Name}"
+                                       Classes="sectionTitle" />
+                            <ItemsControl ItemsSource="{Binding Bindings}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Spacing="6" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="items:ShortcutBindingViewModel">
+                                        <Grid RowDefinitions="Auto,Auto,Auto"
+                                              ColumnDefinitions="*,140,72,34,34,34"
+                                              ColumnSpacing="8"
+                                              RowSpacing="4"
+                                              Classes="shortcutBindingRow">
+                                            <TextBlock Text="{Binding Name}"
+                                                       VerticalAlignment="Center"
+                                                       FontWeight="SemiBold" />
+                                            <Border Grid.Column="1"
+                                                    Classes="shortcutGesture"
+                                                    Classes.conflicted="{Binding IsConflicted}"
+                                                    Classes.recording="{Binding IsRecording}">
+                                                <TextBlock Text="{Binding DisplayGestureText}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Border>
+                                            <CheckBox Grid.Column="2"
+                                                      Content="启用"
+                                                      IsChecked="{Binding IsEnabled}"
+                                                      VerticalAlignment="Center" />
+                                            <Button Grid.Column="3"
+                                                    Classes="iconButton"
+                                                    ToolTip.Tip="录制"
+                                                    Click="RecordShortcut_OnClick"
+                                                    Command="{Binding #Root.DataContext.BeginRecordShortcutCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <LucideIcon Kind="Keyboard" />
+                                            </Button>
+                                            <Button Grid.Column="4"
+                                                    Classes="iconButton"
+                                                    ToolTip.Tip="清除"
+                                                    Command="{Binding #Root.DataContext.ClearShortcutCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <LucideIcon Kind="Trash2" />
+                                            </Button>
+                                            <Button Grid.Column="5"
+                                                    Classes="iconButton"
+                                                    ToolTip.Tip="{Binding DefaultGestureText}"
+                                                    Command="{Binding #Root.DataContext.ResetShortcutToDefaultCommand}"
+                                                    CommandParameter="{Binding}">
+                                                <LucideIcon Kind="CircleArrowLeft" />
+                                            </Button>
+                                            <TextBlock Grid.Row="1"
+                                                       Grid.ColumnSpan="6"
+                                                       Text="{Binding ConflictText}"
+                                                       Classes="shortcutConflictText"
+                                                       IsVisible="{Binding IsConflicted}" />
+                                            <TextBlock Grid.Row="2"
+                                                       Grid.ColumnSpan="6"
+                                                       Text="录制中"
+                                                       Classes="shortcutRecordingText"
+                                                       IsVisible="{Binding IsRecording}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+    </StackPanel>
+</UserControl>

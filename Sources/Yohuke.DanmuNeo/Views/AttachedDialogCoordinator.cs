@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Yohuke.DanmuNeo.ViewModels;
 using Yohuke.DanmuNeo.Views.Components;
 
@@ -14,6 +15,7 @@ internal class AttachedDialogCoordinator : IDisposable
     private AttachedDialogWindow? addDialogWindow;
     private AttachedDialogWindow? settingsDialogWindow;
     private AttachedDialogWindow? confirmDeleteDialogWindow;
+    private bool isBoundsUpdateQueued;
     private bool isDisposed;
 
     public AttachedDialogCoordinator(Window owner, Control dialogAnchor)
@@ -21,8 +23,8 @@ internal class AttachedDialogCoordinator : IDisposable
         this.owner = owner;
         this.dialogAnchor = dialogAnchor;
 
-        owner.PositionChanged += (_, _) => UpdateDialogBounds();
-        owner.SizeChanged += (_, _) => UpdateDialogBounds();
+        owner.PositionChanged += (_, _) => RequestUpdateDialogBounds();
+        owner.SizeChanged += (_, _) => RequestUpdateDialogBounds();
         owner.PropertyChanged += Owner_OnPropertyChanged;
     }
 
@@ -159,6 +161,21 @@ internal class AttachedDialogCoordinator : IDisposable
         UpdateDialogBounds(confirmDeleteDialogWindow);
     }
 
+    private void RequestUpdateDialogBounds()
+    {
+        if (isDisposed || isBoundsUpdateQueued)
+        {
+            return;
+        }
+
+        isBoundsUpdateQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            isBoundsUpdateQueued = false;
+            UpdateDialogBounds();
+        }, DispatcherPriority.Render);
+    }
+
     private void UpdateDialogBounds(AttachedDialogWindow? window)
     {
         if (window is null || !window.IsVisible)
@@ -173,9 +190,27 @@ internal class AttachedDialogCoordinator : IDisposable
             return;
         }
 
-        window.Position = dialogAnchor.PointToScreen(new(0, 0));
-        window.Width = bounds.Width;
-        window.Height = bounds.Height;
+        var nextPosition = dialogAnchor.PointToScreen(new(0, 0));
+
+        if (window.Position != nextPosition)
+        {
+            window.Position = nextPosition;
+        }
+
+        if (!AreClose(window.Width, bounds.Width))
+        {
+            window.Width = bounds.Width;
+        }
+
+        if (!AreClose(window.Height, bounds.Height))
+        {
+            window.Height = bounds.Height;
+        }
+    }
+
+    private static bool AreClose(double first, double second)
+    {
+        return Math.Abs(first - second) < 0.5;
     }
 
     private static void HideDialog(AttachedDialogWindow? window)

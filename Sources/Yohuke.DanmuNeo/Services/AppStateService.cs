@@ -430,6 +430,7 @@ public class AppStateService
         state.Settings.WorkspaceToolColumnWidth =
             ClampWorkspaceColumnWidth(state.Settings.WorkspaceToolColumnWidth);
         MarkSymbolService.Normalize(state.Settings);
+        ShortcutBindingService.Normalize(state.Settings);
 
         if (state.Workspaces.Count == 0)
         {

@@ -1,7 +1,12 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Yohuke.DanmuNeo.Services;
 using Yohuke.DanmuNeo.ViewModels;
+using Yohuke.DanmuNeo.ViewModels.Items;
+using Yohuke.DanmuNeo.Views.Components;
 
 namespace Yohuke.DanmuNeo.Views;
 
@@ -11,6 +16,10 @@ namespace Yohuke.DanmuNeo.Views;
 public partial class MainWindow : Window
 {
     private readonly AttachedDialogCoordinator dialogCoordinator;
+    private DispatcherTimer? lyricSeekRepeatTimer;
+    private Key? lyricSeekRepeatKey;
+    private double lyricSeekRepeatOffsetSeconds;
+    private bool isLyricSeekRepeating;
 
     /// <summary>
     /// 初始化主窗口。
@@ -22,6 +31,8 @@ public partial class MainWindow : Window
         StartupLog.Append("MainWindow InitializeComponent end");
         dialogCoordinator = new(this, MainColumns);
         DataContextChanged += OnDataContextChanged;
+        AddHandler(KeyDownEvent, MainWindow_OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, MainWindow_OnPreviewKeyUp, RoutingStrategies.Tunnel);
         Closing += async (_, _) =>
         {
             if (DataContext is MainWindowViewModel viewModel)
@@ -54,6 +65,24 @@ public partial class MainWindow : Window
         }
     }
 
+    private void MainWindow_OnPreviewKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (!TryHandleShortcut(e))
+        {
+            return;
+        }
+
+        e.Handled = true;
+    }
+
+    private void MainWindow_OnPreviewKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (lyricSeekRepeatKey == e.Key)
+        {
+            StopLyricSeekRepeat();
+        }
+    }
+
     private async void SidebarSplitter_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (DataContext is MainWindowViewModel viewModel)
@@ -61,6 +90,139 @@ public partial class MainWindow : Window
             viewModel.Settings.SidebarWidth = AppStateService.ClampSidebarWidth(GetSidebarColumn().ActualWidth);
             GetSidebarColumn().Width = new(viewModel.Settings.SidebarWidth);
             await viewModel.SaveAsync();
+        }
+    }
+
+    private bool TryHandleShortcut(KeyEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel viewModel ||
+            viewModel.SelectedWorkspace?.SelectedRoom is not { } room)
+        {
+            return false;
+        }
+
+        var actionKey = ShortcutBindingService.GetTriggeredActionKey(
+            viewModel.Settings.ShortcutBindings,
+            e.Key,
+            e.KeyModifiers);
+
+        if (actionKey is null || IsTextInputEvent(e) && actionKey != ShortcutActionKeys.INPUT_CLEAR_DRAFT)
+        {
+            return false;
+        }
+
+        return ExecuteShortcut(room, actionKey, e.Key);
+    }
+
+    private bool ExecuteShortcut(LiveRoomTabViewModel room, string actionKey, Key key)
+    {
+        switch (actionKey)
+        {
+            case ShortcutActionKeys.LIVE_ROOM_START_LISTENING:
+                room.StartListening();
+                return true;
+            case ShortcutActionKeys.LIVE_ROOM_STOP_LISTENING:
+                room.StopListening();
+                return true;
+            case ShortcutActionKeys.LIVE_PLAYER_START:
+                _ = room.PlayLiveAsync();
+                return true;
+            case ShortcutActionKeys.LIVE_PLAYER_STOP:
+                room.StopLivePlayer();
+                return true;
+            case ShortcutActionKeys.LIVE_PLAYER_CHASE:
+                _ = room.ChaseLiveAsync();
+                return true;
+            case ShortcutActionKeys.INPUT_FOCUS_DRAFT:
+                GetActiveLiveRoomView()?.FocusInputDraftFromShortcut();
+                return true;
+            case ShortcutActionKeys.INPUT_CLEAR_DRAFT:
+                ClearInputDraft(room);
+                return true;
+            case ShortcutActionKeys.LYRIC_START_SENDING:
+                _ = room.StartAutoLyricAsync();
+                return true;
+            case ShortcutActionKeys.LYRIC_STOP_SENDING:
+                room.StopAutoLyric();
+                return true;
+            case ShortcutActionKeys.LYRIC_SEEK_BACKWARD:
+                StartLyricSeekShortcut(room, key, -0.5);
+                return true;
+            case ShortcutActionKeys.LYRIC_SEEK_FORWARD:
+                StartLyricSeekShortcut(room, key, 0.5);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private void ClearInputDraft(LiveRoomTabViewModel room)
+    {
+        var view = GetActiveLiveRoomView();
+
+        if (view is not null)
+        {
+            view.ClearInputDraftFromShortcut();
+            return;
+        }
+
+        room.ClearInputDraft();
+    }
+
+    private LiveRoomWorkspaceView? GetActiveLiveRoomView()
+    {
+        return this.GetVisualDescendants().OfType<LiveRoomWorkspaceView>().FirstOrDefault();
+    }
+
+    private static bool IsTextInputEvent(KeyEventArgs e)
+    {
+        if (e.Source is TextBox)
+        {
+            return true;
+        }
+
+        return e.Source is Control control && control.FindAncestorOfType<TextBox>() is not null;
+    }
+
+    private void StartLyricSeekShortcut(LiveRoomTabViewModel room, Key key, double offsetSeconds)
+    {
+        if (lyricSeekRepeatTimer?.IsEnabled == true && lyricSeekRepeatKey == key)
+        {
+            return;
+        }
+
+        room.AdjustLyricPlaybackPosition(offsetSeconds);
+        lyricSeekRepeatKey = key;
+        lyricSeekRepeatOffsetSeconds = offsetSeconds;
+        isLyricSeekRepeating = false;
+        lyricSeekRepeatTimer ??= new();
+        lyricSeekRepeatTimer.Stop();
+        lyricSeekRepeatTimer.Interval = TimeSpan.FromSeconds(1);
+        lyricSeekRepeatTimer.Tick -= LyricSeekRepeatTimer_OnTick;
+        lyricSeekRepeatTimer.Tick += LyricSeekRepeatTimer_OnTick;
+        lyricSeekRepeatTimer.Start();
+    }
+
+    private void StopLyricSeekRepeat()
+    {
+        lyricSeekRepeatTimer?.Stop();
+        lyricSeekRepeatKey = null;
+        lyricSeekRepeatOffsetSeconds = 0;
+        isLyricSeekRepeating = false;
+    }
+
+    private void LyricSeekRepeatTimer_OnTick(object? sender, EventArgs e)
+    {
+        if (!isLyricSeekRepeating)
+        {
+            isLyricSeekRepeating = true;
+            lyricSeekRepeatTimer!.Interval = TimeSpan.FromMilliseconds(250);
+        }
+
+        if (DataContext is MainWindowViewModel viewModel &&
+            viewModel.SelectedWorkspace?.SelectedRoom is { } room)
+        {
+            room.AdjustLyricPlaybackPosition(lyricSeekRepeatOffsetSeconds);
         }
     }
 

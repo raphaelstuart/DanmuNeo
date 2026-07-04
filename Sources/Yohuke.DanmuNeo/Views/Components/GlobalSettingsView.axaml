@@ -61,13 +61,21 @@
             <StackPanel Spacing="10">
                 <TextBlock Text="全局发送"
                            Classes="sectionTitle"/>
-                <Grid ColumnDefinitions="*,*,*,Auto"
+                <Grid ColumnDefinitions="*,*"
                       ColumnSpacing="8">
-                    <TextBox Watermark="发送间隔 ms"
-                             Text="{Binding Settings.SendIntervalMs}"/>
-                    <TextBox Grid.Column="1"
-                             Watermark="超时秒数"
-                             Text="{Binding Settings.TimeoutSeconds}"/>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="发送间隔 ms"
+                                   Classes="muted"/>
+                        <TextBox Watermark="发送间隔 ms"
+                                 Text="{Binding Settings.SendIntervalMs}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="4">
+                        <TextBlock Text="超时秒数"
+                                   Classes="muted"/>
+                        <TextBox Watermark="超时秒数"
+                                 Text="{Binding Settings.TimeoutSeconds}"/>
+                    </StackPanel>
                 </Grid>
                 <StackPanel Orientation="Horizontal"
                             Spacing="16">
@@ -75,14 +83,24 @@
                               IsChecked="{Binding Settings.EnableShieldProcessing}"/>
                     <CheckBox Content="屏蔽时重发"
                               IsChecked="{Binding Settings.ResendWhenShielded}"/>
+                    <CheckBox Content="播放/追帧时自动监听"
+                              IsChecked="{Binding Settings.AutoStartListeningWithLivePlayer}"/>
                 </StackPanel>
                 <Grid ColumnDefinitions="*,*"
                       ColumnSpacing="8">
-                    <TextBox Watermark="弹幕/SC 插入开符号"
-                             Text="{Binding Settings.DanmuInsertOpenMark}"/>
-                    <TextBox Grid.Column="1"
-                             Watermark="弹幕/SC 插入闭符号"
-                             Text="{Binding Settings.DanmuInsertCloseMark}"/>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="弹幕/SC 插入开符号"
+                                   Classes="muted"/>
+                        <TextBox Watermark="弹幕/SC 插入开符号"
+                                 Text="{Binding Settings.DanmuInsertOpenMark}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1"
+                                Spacing="4">
+                        <TextBlock Text="弹幕/SC 插入闭符号"
+                                   Classes="muted"/>
+                        <TextBox Watermark="弹幕/SC 插入闭符号"
+                                 Text="{Binding Settings.DanmuInsertCloseMark}"/>
+                    </StackPanel>
                 </Grid>
                 <TextBlock Text="示例：点击内容 你好，插入 &quot;你好&quot;"
                            Classes="muted"/>

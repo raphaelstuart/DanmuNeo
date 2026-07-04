@@ -320,7 +320,8 @@
                                     <DataTemplate DataType="workspace:LyricLineState">
                                         <Border Classes="lyricLine"
                                                 Classes.active="{Binding IsActive}"
-                                                Classes.sent="{Binding IsSent}">
+                                                Classes.sent="{Binding IsSent}"
+                                                DoubleTapped="LyricLine_OnDoubleTapped">
                                             <Grid>
                                                 <ProgressBar Classes="lyricLineProgress"
                                                              Minimum="0"
