@@ -1,4 +1,6 @@
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.Input;
+using Yohuke.DanmuNeo.ViewModels;
 
 namespace Yohuke.DanmuNeo.Views.Components;
 
@@ -13,5 +15,14 @@ public partial class LyricLibrarySettingsView : UserControl
     public LyricLibrarySettingsView()
     {
         InitializeComponent();
+    }
+
+    [RelayCommand]
+    private async Task SaveCurrentLyricToLibraryAsync()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.SaveCurrentLyricToLibraryAsync();
+        }
     }
 }

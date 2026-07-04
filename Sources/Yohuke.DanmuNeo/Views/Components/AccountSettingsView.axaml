@@ -46,7 +46,7 @@
 	                    <Button Grid.Column="1"
 	                            ToolTip.Tip="新增账号"
 	                            Classes="iconButton"
-	                            Command="{Binding AddAccountCommand}">
+	                            Command="{Binding #Root.AddAccountCommand}">
 	                        <LucideIcon Kind="UserPlus"/>
 	                    </Button>
 	                    <Button Grid.Column="2"
@@ -87,14 +87,14 @@
 	                                        <Button Grid.Column="3"
 	                                                ToolTip.Tip="设为默认"
 	                                                Classes="iconButton"
-	                                                Command="{Binding #Root.DataContext.SetDefaultAccountCommand}"
+	                                                Command="{Binding #Root.SetDefaultAccountCommand}"
 	                                                CommandParameter="{Binding}">
 	                                            <LucideIcon Kind="BadgeCheck"/>
 	                                        </Button>
 	                                        <Button Grid.Column="4"
 	                                                ToolTip.Tip="删除"
 	                                                Classes="iconButton"
-	                                                Command="{Binding #Root.DataContext.DeleteAccountCommand}"
+	                                                Command="{Binding #Root.DeleteAccountCommand}"
 	                                                CommandParameter="{Binding}">
 	                                            <LucideIcon Kind="Trash2"/>
 	                                        </Button>

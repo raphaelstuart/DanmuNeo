@@ -22,7 +22,7 @@
                         <DataTemplate DataType="items:ThemeModeOption">
                             <Button Classes="themeCardButton"
                                     Classes.selected="{Binding IsSelected}"
-                                    Command="{Binding #Root.DataContext.SelectThemeModeCommand}"
+                                    Command="{Binding #Root.SelectThemeModeCommand}"
                                     CommandParameter="{Binding}">
                                 <StackPanel Spacing="10">
                                     <Border Classes="themePreview"

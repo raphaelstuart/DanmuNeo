@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using CommunityToolkit.Mvvm.Input;
 using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.ViewModels;
 using Yohuke.DanmuNeo.Views;
@@ -35,6 +36,24 @@ public partial class LyricLibraryListView : UserControl
         set => SetValue(ShowEditButtonProperty, value);
     }
 
+    [RelayCommand]
+    private async Task PickLyricLibraryItemAsync(LyricLibraryItem? item)
+    {
+        if (GetMainWindowViewModel() is MainWindowViewModel viewModel)
+        {
+            await viewModel.PickLyricLibraryItemAsync(item);
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteLyricLibraryItemAsync(LyricLibraryItem? item)
+    {
+        if (GetMainWindowViewModel() is MainWindowViewModel viewModel)
+        {
+            await viewModel.DeleteLyricLibraryItemAsync(item);
+        }
+    }
+
     private async void EditLyric_OnClick(object? sender, RoutedEventArgs e)
     {
         if ((sender as Control)?.DataContext is not LyricLibraryItem item ||
@@ -51,5 +70,10 @@ public partial class LyricLibraryListView : UserControl
         {
             await viewModel.SaveLyricLibraryEditAsync();
         }
+    }
+
+    private MainWindowViewModel? GetMainWindowViewModel()
+    {
+        return TopLevel.GetTopLevel(this)?.DataContext as MainWindowViewModel;
     }
 }

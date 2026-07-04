@@ -53,21 +53,21 @@
                                                     Classes="iconButton"
                                                     ToolTip.Tip="录制"
                                                     Click="RecordShortcut_OnClick"
-                                                    Command="{Binding #Root.DataContext.BeginRecordShortcutCommand}"
+                                                    Command="{Binding #Root.BeginRecordShortcutCommand}"
                                                     CommandParameter="{Binding}">
                                                 <LucideIcon Kind="Keyboard" />
                                             </Button>
                                             <Button Grid.Column="4"
                                                     Classes="iconButton"
                                                     ToolTip.Tip="清除"
-                                                    Command="{Binding #Root.DataContext.ClearShortcutCommand}"
+                                                    Command="{Binding #Root.ClearShortcutCommand}"
                                                     CommandParameter="{Binding}">
                                                 <LucideIcon Kind="Trash2" />
                                             </Button>
                                             <Button Grid.Column="5"
                                                     Classes="iconButton"
                                                     ToolTip.Tip="{Binding DefaultGestureText}"
-                                                    Command="{Binding #Root.DataContext.ResetShortcutToDefaultCommand}"
+                                                    Command="{Binding #Root.ResetShortcutToDefaultCommand}"
                                                     CommandParameter="{Binding}">
                                                 <LucideIcon Kind="CircleArrowLeft" />
                                             </Button>

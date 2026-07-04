@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
+using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.ViewModels;
 using Yohuke.DanmuNeo.ViewModels.Items;
 
@@ -17,6 +19,42 @@ public partial class WorkspaceSettingsView : UserControl
     public WorkspaceSettingsView()
     {
         InitializeComponent();
+    }
+
+    [RelayCommand]
+    private void OpenDeleteWorkspaceDialog(WorkspaceViewModel? workspace)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.OpenDeleteWorkspaceDialog(workspace);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenDeleteRoomDialog(LiveRoomTabViewModel? room)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.OpenDeleteRoomDialog(room);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ClearWorkspaceAccountAsync()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.ClearWorkspaceAccountAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SetWorkspaceAccountAsync(BilibiliAccount? account)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.SetWorkspaceAccountAsync(account);
+        }
     }
 
     private async void RoomInfo_OnLostFocus(object? sender, RoutedEventArgs e)

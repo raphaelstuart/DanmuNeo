@@ -27,13 +27,13 @@
               ColumnSpacing="8">
             <Button Classes="sourceSegmentButton"
                     Classes.selected="{Binding IsNetEaseMusicLyricSource}"
-                    Command="{Binding SelectNetEaseMusicLyricSourceCommand}">
+                    Command="{Binding #Root.SelectNetEaseMusicLyricSourceCommand}">
                 <TextBlock Text="网易云"/>
             </Button>
             <Button Grid.Column="1"
                     Classes="sourceSegmentButton"
                     Classes.selected="{Binding IsQQMusicLyricSource}"
-                    Command="{Binding SelectQQMusicLyricSourceCommand}">
+                    Command="{Binding #Root.SelectQQMusicLyricSourceCommand}">
                 <TextBlock Text="QQ 音乐"/>
             </Button>
             <TextBox Grid.Column="2"
@@ -41,7 +41,7 @@
                      Text="{Binding MusicLyricSearchText}"/>
             <Button Grid.Column="3"
                     Classes="primaryButton"
-                    Command="{Binding SearchMusicLyricsCommand}">
+                    Command="{Binding #Root.SearchMusicLyricsCommand}">
                 <StackPanel Orientation="Horizontal"
                             Spacing="6">
                     <LucideIcon Kind="Search"/>
@@ -75,7 +75,7 @@
                             <Button Grid.Column="1"
                                     Classes="iconButton"
                                     ToolTip.Tip="导入歌词"
-                                    Command="{Binding #Root.DataContext.ImportMusicLyricCommand}"
+                                    Command="{Binding #Root.ImportMusicLyricCommand}"
                                     CommandParameter="{Binding}">
                                 <LucideIcon Kind="Download"/>
                             </Button>

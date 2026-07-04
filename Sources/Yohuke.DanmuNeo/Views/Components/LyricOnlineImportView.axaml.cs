@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
+using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.ViewModels;
 
 namespace Yohuke.DanmuNeo.Views.Components;
@@ -32,6 +34,42 @@ public partial class LyricOnlineImportView : UserControl
     {
         get => GetValue(LoadToCurrentRoomProperty);
         set => SetValue(LoadToCurrentRoomProperty, value);
+    }
+
+    [RelayCommand]
+    private void SelectNetEaseMusicLyricSource()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.SelectNetEaseMusicLyricSource();
+        }
+    }
+
+    [RelayCommand]
+    private void SelectQQMusicLyricSource()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.SelectQQMusicLyricSource();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SearchMusicLyricsAsync()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.SearchMusicLyricsAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportMusicLyricAsync(MusicLyricSearchResult? result)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.ImportMusicLyricAsync(result);
+        }
     }
 
     private async void ImportLocalLyricFile_OnClick(object? sender, RoutedEventArgs e)

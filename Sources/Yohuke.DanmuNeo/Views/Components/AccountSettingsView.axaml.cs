@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.Input;
 using Yohuke.DanmuNeo.Models.BrowserLogin;
 using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.Services;
@@ -18,6 +19,33 @@ public partial class AccountSettingsView : UserControl
     public AccountSettingsView()
     {
         InitializeComponent();
+    }
+
+    [RelayCommand]
+    private async Task AddAccountAsync()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.AddAccountAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task SetDefaultAccountAsync(BilibiliAccount? account)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.SetDefaultAccountAsync(account);
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteAccountAsync(BilibiliAccount? account)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.DeleteAccountAsync(account);
+        }
     }
 
     private async void BilibiliBrowserLogin_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

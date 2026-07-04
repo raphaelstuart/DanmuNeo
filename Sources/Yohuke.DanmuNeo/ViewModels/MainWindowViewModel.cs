@@ -1,7 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using Avalonia.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using Yohuke.DanmuNeo.Models.BrowserLogin;
 using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.Models.Workspace;
@@ -394,7 +393,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 新建工作区。
     /// </summary>
-    [RelayCommand]
     public async Task AddWorkspaceAsync()
     {
         var name = string.IsNullOrWhiteSpace(NewWorkspaceName)
@@ -417,7 +415,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 选择工作区。
     /// </summary>
-    [RelayCommand]
     public void SelectWorkspace(WorkspaceViewModel? workspace)
     {
         if (workspace is null)
@@ -438,7 +435,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 选择直播间。
     /// </summary>
-    [RelayCommand]
     public void SelectRoom(LiveRoomTabViewModel? room)
     {
         if (room is null)
@@ -467,7 +463,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 切换工作区展开状态。
     /// </summary>
-    [RelayCommand]
     public void ToggleWorkspaceExpanded(WorkspaceViewModel? workspace)
     {
         if (workspace is null)
@@ -481,7 +476,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开新增工作区对话框。
     /// </summary>
-    [RelayCommand]
     public void OpenAddWorkspaceDialog()
     {
         addDialogKind = "workspace";
@@ -501,7 +495,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开新增直播间对话框。
     /// </summary>
-    [RelayCommand]
     public void OpenAddRoomDialog(WorkspaceViewModel? workspace)
     {
         var targetWorkspace = workspace ?? SelectedWorkspace;
@@ -529,7 +522,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 关闭新增对话框。
     /// </summary>
-    [RelayCommand]
     public void CloseAddDialog()
     {
         IsAddDialogOpen = false;
@@ -538,7 +530,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 确认新增工作区或直播间。
     /// </summary>
-    [RelayCommand]
     public async Task ConfirmAddDialogAsync()
     {
         if (addDialogKind == "workspace")
@@ -575,7 +566,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开删除工作区确认框。
     /// </summary>
-    [RelayCommand]
     public void OpenDeleteWorkspaceDialog(WorkspaceViewModel? workspace)
     {
         if (workspace is null || Workspaces.Count <= 1)
@@ -595,7 +585,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开删除直播间确认框。
     /// </summary>
-    [RelayCommand]
     public void OpenDeleteRoomDialog(LiveRoomTabViewModel? room)
     {
         if (room is null)
@@ -615,7 +604,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 关闭删除确认框。
     /// </summary>
-    [RelayCommand]
     public void CloseDeleteDialog()
     {
         IsConfirmDeleteDialogOpen = false;
@@ -627,7 +615,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 确认删除工作区或直播间。
     /// </summary>
-    [RelayCommand]
     public async Task ConfirmDeleteDialogAsync()
     {
         var workspace = deleteDialogWorkspace;
@@ -650,7 +637,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 删除当前工作区。
     /// </summary>
-    [RelayCommand]
     public async Task DeleteSelectedWorkspaceAsync()
     {
         await DeleteWorkspaceAsync(SelectedWorkspace);
@@ -659,7 +645,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 删除指定工作区。
     /// </summary>
-    [RelayCommand]
     public async Task DeleteWorkspaceAsync(WorkspaceViewModel? workspace)
     {
         if (workspace is null || Workspaces.Count <= 1)
@@ -686,7 +671,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 添加直播间 tab。
     /// </summary>
-    [RelayCommand]
     public async Task AddRoomAsync()
     {
         if (SelectedWorkspace is null || string.IsNullOrWhiteSpace(NewRoomId))
@@ -708,7 +692,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 删除直播间 tab。
     /// </summary>
-    [RelayCommand]
     public async Task RemoveRoomAsync(LiveRoomTabViewModel? room)
     {
         if (room is null)
@@ -741,7 +724,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 保存直播间信息改动。
     /// </summary>
-    [RelayCommand]
     public async Task SaveRoomInfoAsync(LiveRoomTabViewModel? room)
     {
         if (room is null)
@@ -762,7 +744,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开设置页。
     /// </summary>
-    [RelayCommand]
     public void OpenSettings()
     {
         SelectedSettingsSection = SettingsSectionOptions.FirstOrDefault(option => option.Key == "global");
@@ -772,7 +753,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开同传页面内嵌歌词库选择器。
     /// </summary>
-    [RelayCommand]
     public void OpenLyricLibraryPicker()
     {
         IsLyricLibraryPickerOpen = true;
@@ -781,7 +761,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 关闭同传页面内嵌歌词库选择器。
     /// </summary>
-    [RelayCommand]
     public void CloseLyricLibraryPicker()
     {
         IsLyricLibraryPickerOpen = false;
@@ -790,7 +769,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开指定工作区设置。
     /// </summary>
-    [RelayCommand]
     public void OpenWorkspaceSettings(WorkspaceViewModel? workspace)
     {
         if (workspace is not null)
@@ -805,7 +783,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 选择设置页分区。
     /// </summary>
-    [RelayCommand]
     public void SelectSettingsSection(SettingsSectionOption? option)
     {
         if (option is null)
@@ -819,7 +796,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 开始录制快捷键。
     /// </summary>
-    [RelayCommand]
     public void BeginRecordShortcut(ShortcutBindingViewModel? binding)
     {
         if (binding is null)
@@ -836,7 +812,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 清除快捷键。
     /// </summary>
-    [RelayCommand]
     public void ClearShortcut(ShortcutBindingViewModel? binding)
     {
         if (binding is null)
@@ -853,7 +828,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 恢复默认快捷键。
     /// </summary>
-    [RelayCommand]
     public void ResetShortcutToDefault(ShortcutBindingViewModel? binding)
     {
         if (binding is null)
@@ -965,7 +939,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 选择网易云歌词来源。
     /// </summary>
-    [RelayCommand]
     public void SelectNetEaseMusicLyricSource()
     {
         SelectedMusicLyricSource = "wy";
@@ -974,7 +947,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 选择 QQ 音乐歌词来源。
     /// </summary>
-    [RelayCommand]
     public void SelectQQMusicLyricSource()
     {
         SelectedMusicLyricSource = "qq";
@@ -983,7 +955,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 搜索音乐 API 歌词。
     /// </summary>
-    [RelayCommand]
     public async Task SearchMusicLyricsAsync()
     {
         MusicLyricSearchResults.Clear();
@@ -1022,7 +993,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 选择配色方案。
     /// </summary>
-    [RelayCommand]
     public async Task SelectThemeModeAsync(ThemeModeOption? option)
     {
         if (option is null || Settings.ThemeMode == option.Value)
@@ -1040,7 +1010,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 关闭设置页并保存。
     /// </summary>
-    [RelayCommand]
     public async Task CloseSettingsAsync()
     {
         IsSettingsOpen = false;
@@ -1050,7 +1019,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 新增账号。
     /// </summary>
-    [RelayCommand]
     public async Task AddAccountAsync()
     {
         var account = new BilibiliAccount
@@ -1113,7 +1081,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 删除账号。
     /// </summary>
-    [RelayCommand]
     public async Task DeleteAccountAsync(BilibiliAccount? account)
     {
         if (account is null)
@@ -1152,7 +1119,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 设置默认账号。
     /// </summary>
-    [RelayCommand]
     public async Task SetDefaultAccountAsync(BilibiliAccount? account)
     {
         if (account is null)
@@ -1172,7 +1138,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 当前工作区使用全局账号。
     /// </summary>
-    [RelayCommand]
     public async Task ClearWorkspaceAccountAsync()
     {
         if (SelectedWorkspace is null)
@@ -1188,7 +1153,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 当前工作区使用指定账号。
     /// </summary>
-    [RelayCommand]
     public async Task SetWorkspaceAccountAsync(BilibiliAccount? account)
     {
         if (SelectedWorkspace is null || account is null)
@@ -1204,7 +1168,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 上移工作区。
     /// </summary>
-    [RelayCommand]
     public async Task MoveWorkspaceUpAsync(WorkspaceViewModel? workspace)
     {
         await MoveWorkspaceAsync(workspace, -1);
@@ -1213,7 +1176,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 下移工作区。
     /// </summary>
-    [RelayCommand]
     public async Task MoveWorkspaceDownAsync(WorkspaceViewModel? workspace)
     {
         await MoveWorkspaceAsync(workspace, 1);
@@ -1222,7 +1184,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 上移直播间。
     /// </summary>
-    [RelayCommand]
     public async Task MoveRoomUpAsync(LiveRoomTabViewModel? room)
     {
         await MoveRoomAsync(room, -1);
@@ -1231,7 +1192,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 下移直播间。
     /// </summary>
-    [RelayCommand]
     public async Task MoveRoomDownAsync(LiveRoomTabViewModel? room)
     {
         await MoveRoomAsync(room, 1);
@@ -1240,7 +1200,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 新增符号组。
     /// </summary>
-    [RelayCommand]
     public async Task AddSymbolGroupAsync()
     {
         var baseGroup = SelectedWorkspaceMarkGroup ??
@@ -1268,7 +1227,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 删除符号组。
     /// </summary>
-    [RelayCommand]
     public async Task DeleteSymbolGroupAsync(MarkSymbolGroup? group)
     {
         if (group is null || SymbolGroups.Count <= 1)
@@ -1293,7 +1251,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 切换符号组展开状态。
     /// </summary>
-    [RelayCommand]
     public async Task ToggleSymbolGroupExpandedAsync(MarkSymbolGroup? group)
     {
         if (group is null)
@@ -1308,7 +1265,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 上移符号组。
     /// </summary>
-    [RelayCommand]
     public async Task MoveSymbolGroupUpAsync(MarkSymbolGroup? group)
     {
         await MoveSymbolGroupAsync(group, -1);
@@ -1317,7 +1273,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 下移符号组。
     /// </summary>
-    [RelayCommand]
     public async Task MoveSymbolGroupDownAsync(MarkSymbolGroup? group)
     {
         await MoveSymbolGroupAsync(group, 1);
@@ -1326,7 +1281,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 新增屏蔽词替换规则。
     /// </summary>
-    [RelayCommand]
     public async Task AddShieldReplacementRuleAsync()
     {
         var rule = new ShieldReplacementRule
@@ -1342,7 +1296,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 删除屏蔽词替换规则。
     /// </summary>
-    [RelayCommand]
     public async Task DeleteShieldReplacementRuleAsync(ShieldReplacementRule? rule)
     {
         if (rule is null)
@@ -1358,7 +1311,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 上移屏蔽词替换规则。
     /// </summary>
-    [RelayCommand]
     public async Task MoveShieldReplacementRuleUpAsync(ShieldReplacementRule? rule)
     {
         await MoveShieldReplacementRuleAsync(rule, -1);
@@ -1367,7 +1319,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 下移屏蔽词替换规则。
     /// </summary>
-    [RelayCommand]
     public async Task MoveShieldReplacementRuleDownAsync(ShieldReplacementRule? rule)
     {
         await MoveShieldReplacementRuleAsync(rule, 1);
@@ -1376,7 +1327,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 将当前直播间歌词保存到歌词库。
     /// </summary>
-    [RelayCommand]
     public async Task SaveCurrentLyricToLibraryAsync()
     {
         var room = SelectedWorkspace?.SelectedRoom;
@@ -1446,7 +1396,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 从音乐 API 导入歌词。
     /// </summary>
-    [RelayCommand]
     public async Task ImportMusicLyricAsync(MusicLyricSearchResult? result)
     {
         if (result is null)
@@ -1475,7 +1424,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 使用歌词库条目。
     /// </summary>
-    [RelayCommand]
     public async Task UseLyricLibraryItemAsync(LyricLibraryItem? item)
     {
         if (item is null)
@@ -1490,7 +1438,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 在内嵌选择器中选择歌词库条目。
     /// </summary>
-    [RelayCommand]
     public async Task PickLyricLibraryItemAsync(LyricLibraryItem? item)
     {
         if (item is null)
@@ -1506,7 +1453,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 删除歌词库条目。
     /// </summary>
-    [RelayCommand]
     public async Task DeleteLyricLibraryItemAsync(LyricLibraryItem? item)
     {
         if (item is null)
@@ -1532,7 +1478,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开配置目录。
     /// </summary>
-    [RelayCommand]
     public void OpenConfigDirectory()
     {
         OpenDirectory(ConfigDirectory, "配置目录打开失败");
@@ -1541,7 +1486,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 打开缓存目录。
     /// </summary>
-    [RelayCommand]
     public void OpenCacheDirectory()
     {
         OpenDirectory(CacheDirectory, "缓存目录打开失败");
@@ -1550,7 +1494,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 刷新缓存体积。
     /// </summary>
-    [RelayCommand]
     public void RefreshCacheSize()
     {
         CacheSizeText = AppBackupService.FormatSize(appBackupService.GetDirectorySize(CacheDirectory));
@@ -1559,7 +1502,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 清理缓存。
     /// </summary>
-    [RelayCommand]
     public async Task ClearCacheAsync()
     {
         appBackupService.ClearCache();
@@ -1577,7 +1519,6 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// <summary>
     /// 导出全部配置备份。
     /// </summary>
-    [RelayCommand]
     public async Task ExportAllBackupAsync()
     {
         try

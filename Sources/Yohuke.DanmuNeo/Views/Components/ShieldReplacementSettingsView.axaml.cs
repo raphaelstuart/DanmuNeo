@@ -1,4 +1,7 @@
 using Avalonia.Controls;
+using CommunityToolkit.Mvvm.Input;
+using Yohuke.DanmuNeo.Models.State;
+using Yohuke.DanmuNeo.ViewModels;
 
 namespace Yohuke.DanmuNeo.Views.Components;
 
@@ -13,5 +16,41 @@ public partial class ShieldReplacementSettingsView : UserControl
     public ShieldReplacementSettingsView()
     {
         InitializeComponent();
+    }
+
+    [RelayCommand]
+    private async Task AddShieldReplacementRuleAsync()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.AddShieldReplacementRuleAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteShieldReplacementRuleAsync(ShieldReplacementRule? rule)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.DeleteShieldReplacementRuleAsync(rule);
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveShieldReplacementRuleUpAsync(ShieldReplacementRule? rule)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.MoveShieldReplacementRuleUpAsync(rule);
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveShieldReplacementRuleDownAsync(ShieldReplacementRule? rule)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.MoveShieldReplacementRuleDownAsync(rule);
+        }
     }
 }

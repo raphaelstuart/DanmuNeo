@@ -9,6 +9,7 @@ using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 using Yohuke.DanmuNeo.Models.Workspace;
 using Yohuke.DanmuNeo.Services;
 using Yohuke.DanmuNeo.ViewModels;
@@ -62,6 +63,24 @@ public partial class LiveRoomWorkspaceView : UserControl
     public void ClearInputDraftFromShortcut()
     {
         ClearInputDraft();
+    }
+
+    [RelayCommand]
+    private void OpenLyricLibraryPicker()
+    {
+        if (GetMainWindowViewModel() is MainWindowViewModel viewModel)
+        {
+            viewModel.OpenLyricLibraryPicker();
+        }
+    }
+
+    [RelayCommand]
+    private void CloseLyricLibraryPicker()
+    {
+        if (GetMainWindowViewModel() is MainWindowViewModel viewModel)
+        {
+            viewModel.CloseLyricLibraryPicker();
+        }
     }
 
     private async void ExportTranslateHistory_OnClick(object? sender, RoutedEventArgs e)

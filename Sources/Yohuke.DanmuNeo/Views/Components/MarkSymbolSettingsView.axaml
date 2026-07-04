@@ -17,7 +17,7 @@
                                    Classes="muted"/>
                     </StackPanel>
 	                    <Button Grid.Column="1"
-	                            Command="{Binding AddSymbolGroupCommand}">
+	                            Command="{Binding #Root.AddSymbolGroupCommand}">
 	                        <StackPanel Orientation="Horizontal"
 	                                    Spacing="6">
 	                            <LucideIcon Kind="FolderPlus"/>
@@ -35,7 +35,7 @@
                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto"
                                           ColumnSpacing="8">
 	                                        <Button Classes="iconButton"
-	                                                Command="{Binding #Root.DataContext.ToggleSymbolGroupExpandedCommand}"
+	                                                Command="{Binding #Root.ToggleSymbolGroupExpandedCommand}"
 	                                                CommandParameter="{Binding}">
 	                                            <LucideIcon Kind="PanelBottomOpen"/>
 	                                        </Button>
@@ -47,21 +47,21 @@
 	                                        <Button Grid.Column="2"
 	                                                Classes="iconButton"
 	                                                ToolTip.Tip="上移"
-	                                                Command="{Binding #Root.DataContext.MoveSymbolGroupUpCommand}"
+	                                                Command="{Binding #Root.MoveSymbolGroupUpCommand}"
 	                                                CommandParameter="{Binding}">
 	                                            <LucideIcon Kind="SquareArrowUp"/>
 	                                        </Button>
 	                                        <Button Grid.Column="3"
 	                                                Classes="iconButton"
 	                                                ToolTip.Tip="下移"
-	                                                Command="{Binding #Root.DataContext.MoveSymbolGroupDownCommand}"
+	                                                Command="{Binding #Root.MoveSymbolGroupDownCommand}"
 	                                                CommandParameter="{Binding}">
 	                                            <LucideIcon Kind="SquareArrowDown"/>
 	                                        </Button>
 	                                        <Button Grid.Column="4"
 	                                                Classes="iconButton"
 	                                                ToolTip.Tip="删除"
-	                                                Command="{Binding #Root.DataContext.DeleteSymbolGroupCommand}"
+	                                                Command="{Binding #Root.DeleteSymbolGroupCommand}"
 	                                                CommandParameter="{Binding}">
 	                                            <LucideIcon Kind="Trash2"/>
 	                                        </Button>

@@ -26,7 +26,7 @@
                         </StackPanel>
                         <Button Grid.Column="1"
                                 Classes="primaryButton"
-                                Command="{Binding CloseSettingsCommand}">
+                                Command="{Binding #Root.CloseSettingsCommand}">
                             <StackPanel Orientation="Horizontal"
                                         Spacing="6">
                                 <LucideIcon Kind="Save" />
@@ -35,7 +35,7 @@
                         </Button>
                         <Button Grid.Column="2"
                                 Classes="iconButton"
-                                Command="{Binding CloseSettingsCommand}">
+                                Command="{Binding #Root.CloseSettingsCommand}">
                             <LucideIcon Kind="X" />
                         </Button>
                     </Grid>
@@ -53,7 +53,7 @@
                             <DataTemplate DataType="items:SettingsSectionOption">
                                 <Button Classes="settingsSectionButton"
                                         Classes.selected="{Binding IsSelected}"
-                                        Command="{Binding #Root.DataContext.SelectSettingsSectionCommand}"
+                                        Command="{Binding #Root.SelectSettingsSectionCommand}"
                                         CommandParameter="{Binding}">
                                     <StackPanel Spacing="2">
                                         <TextBlock Text="{Binding Name}"

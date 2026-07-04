@@ -25,7 +25,7 @@
                             <Button Grid.Column="1"
                                     ToolTip.Tip="使用"
                                     Classes="iconButton"
-                                    Command="{Binding #Root.DataContext.PickLyricLibraryItemCommand}"
+                                    Command="{Binding #Root.PickLyricLibraryItemCommand}"
                                     CommandParameter="{Binding}">
                                 <LucideIcon Kind="BookOpen"/>
                             </Button>
@@ -39,7 +39,7 @@
                             <Button Grid.Column="3"
                                     ToolTip.Tip="删除"
                                     Classes="iconButton"
-                                    Command="{Binding #Root.DataContext.DeleteLyricLibraryItemCommand}"
+                                    Command="{Binding #Root.DeleteLyricLibraryItemCommand}"
                                     CommandParameter="{Binding}">
                                 <LucideIcon Kind="Trash2"/>
                             </Button>

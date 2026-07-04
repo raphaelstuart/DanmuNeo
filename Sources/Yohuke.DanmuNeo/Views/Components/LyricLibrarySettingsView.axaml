@@ -24,7 +24,7 @@
                                    Classes="muted"/>
                     </StackPanel>
                     <Button Grid.Column="1"
-                            Command="{Binding SaveCurrentLyricToLibraryCommand}">
+                            Command="{Binding #Root.SaveCurrentLyricToLibraryCommand}">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6">
                             <LucideIcon Kind="Save"/>

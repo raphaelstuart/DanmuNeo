@@ -1,7 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using CommunityToolkit.Mvvm.Input;
 using Yohuke.DanmuNeo.ViewModels;
+using Yohuke.DanmuNeo.ViewModels.Items;
 
 namespace Yohuke.DanmuNeo.Views.Components;
 
@@ -17,6 +19,33 @@ public partial class ShortcutSettingsView : UserControl
     {
         InitializeComponent();
         AddHandler(KeyDownEvent, ShortcutSettingsView_OnPreviewKeyDown, RoutingStrategies.Tunnel);
+    }
+
+    [RelayCommand]
+    private void BeginRecordShortcut(ShortcutBindingViewModel? binding)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.BeginRecordShortcut(binding);
+        }
+    }
+
+    [RelayCommand]
+    private void ClearShortcut(ShortcutBindingViewModel? binding)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ClearShortcut(binding);
+        }
+    }
+
+    [RelayCommand]
+    private void ResetShortcutToDefault(ShortcutBindingViewModel? binding)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ResetShortcutToDefault(binding);
+        }
     }
 
     private void RecordShortcut_OnClick(object? sender, RoutedEventArgs e)

@@ -5,7 +5,8 @@
              xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components"
              xmlns:items="clr-namespace:Yohuke.DanmuNeo.ViewModels.Items"
              x:Class="Yohuke.DanmuNeo.Views.Components.LiveRoomWorkspaceView"
-             x:CompileBindings="False">
+             x:CompileBindings="False"
+             x:Name="Root">
     <Design.DataContext>
         <items:LiveRoomTabViewModel />
     </Design.DataContext>
@@ -316,7 +317,7 @@
                                 <Button Grid.Column="1"
                                         ToolTip.Tip="打开歌词库"
                                         Classes="iconButton"
-                                        Command="{Binding DataContext.OpenLyricLibraryPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}">
+                                        Command="{Binding #Root.OpenLyricLibraryPickerCommand}">
                                     <LucideIcon Kind="Library" />
                                 </Button>
                                 <Button Grid.Column="2"
@@ -515,7 +516,7 @@
                             <Button Grid.Column="1"
                                     Classes="iconButton"
                                     ToolTip.Tip="关闭"
-                                    Command="{Binding CloseLyricLibraryPickerCommand}">
+                                    Command="{Binding #Root.CloseLyricLibraryPickerCommand}">
                                 <LucideIcon Kind="X" />
                             </Button>
                         </Grid>

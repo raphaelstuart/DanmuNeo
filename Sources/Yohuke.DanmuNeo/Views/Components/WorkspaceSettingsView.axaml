@@ -24,7 +24,7 @@
                     <Button Grid.Column="2"
                             ToolTip.Tip="删除工作区"
                             Classes="iconButton"
-                            Command="{Binding OpenDeleteWorkspaceDialogCommand}"
+                            Command="{Binding #Root.OpenDeleteWorkspaceDialogCommand}"
                             CommandParameter="{Binding SelectedWorkspace}">
                         <LucideIcon Kind="Trash2" />
                     </Button>
@@ -42,7 +42,7 @@
                            Classes="muted" />
                 <WrapPanel>
                     <Button Margin="0,0,8,8"
-                            Command="{Binding ClearWorkspaceAccountCommand}">
+                            Command="{Binding #Root.ClearWorkspaceAccountCommand}">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6">
                             <LucideIcon Kind="Globe" />
@@ -59,7 +59,7 @@
                             <DataTemplate DataType="state:BilibiliAccount">
                                 <Button Content="{Binding Name}"
                                         Margin="0,0,8,8"
-                                        Command="{Binding #Root.DataContext.SetWorkspaceAccountCommand}"
+                                        Command="{Binding #Root.SetWorkspaceAccountCommand}"
                                         CommandParameter="{Binding}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -109,7 +109,7 @@
                                 <Button Grid.Column="3"
                                         ToolTip.Tip="删除直播间"
                                         Classes="iconButton"
-                                        Command="{Binding #Root.DataContext.OpenDeleteRoomDialogCommand}"
+                                        Command="{Binding #Root.OpenDeleteRoomDialogCommand}"
                                         CommandParameter="{Binding}">
                                     <LucideIcon Kind="Trash2" />
                                 </Button>

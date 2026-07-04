@@ -8,7 +8,7 @@
         <Border.ContextMenu>
             <ContextMenu>
                 <MenuItem Header="新建工作区"
-                          Command="{Binding OpenAddWorkspaceDialogCommand}">
+                          Command="{Binding #Root.OpenAddWorkspaceDialogCommand}">
                     <MenuItem.Icon>
                         <LucideIcon Kind="FolderPlus" />
                     </MenuItem.Icon>
@@ -30,7 +30,7 @@
                                VerticalAlignment="Center" />
                     <Button Grid.Column="1"
                             Classes="iconButton"
-                            Command="{Binding OpenAddWorkspaceDialogCommand}">
+                            Command="{Binding #Root.OpenAddWorkspaceDialogCommand}">
                         <LucideIcon Kind="FolderPlus" />
                     </Button>
                 </Grid>
@@ -69,14 +69,14 @@
                                             </MenuItem>
                                             <Separator />
                                             <MenuItem Header="上移"
-                                                      Command="{Binding #Root.DataContext.MoveWorkspaceUpCommand}"
+                                                      Command="{Binding #Root.MoveWorkspaceUpCommand}"
                                                       CommandParameter="{Binding}">
                                                 <MenuItem.Icon>
                                                     <LucideIcon Kind="SquareArrowUp" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <MenuItem Header="下移"
-                                                      Command="{Binding #Root.DataContext.MoveWorkspaceDownCommand}"
+                                                      Command="{Binding #Root.MoveWorkspaceDownCommand}"
                                                       CommandParameter="{Binding}">
                                                 <MenuItem.Icon>
                                                     <LucideIcon Kind="SquareArrowDown" />
@@ -106,7 +106,7 @@
                                     </Grid.ContextMenu>
                                     <Button Classes="treeWorkspaceButton"
                                             Classes.selected="{Binding IsSelected}"
-                                            Command="{Binding #Root.DataContext.SelectWorkspaceCommand}"
+                                            Command="{Binding #Root.SelectWorkspaceCommand}"
                                             CommandParameter="{Binding}"
                                             DoubleTapped="WorkspaceRow_OnDoubleTapped">
                                         <Grid ColumnDefinitions="*,Auto"
@@ -132,19 +132,19 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="items:LiveRoomTabViewModel">
                                             <Button Classes="treeRoomButton"
-                                                    Command="{Binding #Root.DataContext.SelectRoomCommand}"
+                                                    Command="{Binding #Root.SelectRoomCommand}"
                                                     CommandParameter="{Binding}">
                                                 <Button.ContextMenu>
                                                     <ContextMenu DataContext="{Binding}">
                                                         <MenuItem Header="上移"
-                                                                  Command="{Binding #Root.DataContext.MoveRoomUpCommand}"
+                                                                  Command="{Binding #Root.MoveRoomUpCommand}"
                                                                   CommandParameter="{Binding}">
                                                             <MenuItem.Icon>
                                                                 <LucideIcon Kind="SquareArrowUp" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="下移"
-                                                                  Command="{Binding #Root.DataContext.MoveRoomDownCommand}"
+                                                                  Command="{Binding #Root.MoveRoomDownCommand}"
                                                                   CommandParameter="{Binding}">
                                                             <MenuItem.Icon>
                                                                 <LucideIcon Kind="SquareArrowDown" />
@@ -202,7 +202,7 @@
 
             <Button Grid.Row="2"
                     Classes="settingsAccountButton"
-                    Command="{Binding OpenSettingsCommand}">
+                    Command="{Binding #Root.OpenSettingsCommand}">
                 <Grid ColumnDefinitions="Auto,*"
                       ColumnSpacing="12">
                     <Border Classes="settingsAvatar">

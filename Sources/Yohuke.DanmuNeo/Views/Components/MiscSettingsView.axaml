@@ -1,7 +1,8 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Yohuke.DanmuNeo.Views.Components.MiscSettingsView"
-             x:CompileBindings="False">
+             x:CompileBindings="False"
+             x:Name="Root">
     <StackPanel Spacing="14"
                 IsVisible="{Binding IsMiscSettingsSelected}">
         <Border Classes="panel" Padding="14">
@@ -26,7 +27,7 @@
                 </Grid>
                 <StackPanel Orientation="Horizontal"
                             Spacing="8">
-                    <Button Command="{Binding OpenConfigDirectoryCommand}">
+                    <Button Command="{Binding #Root.OpenConfigDirectoryCommand}">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6">
                             <LucideIcon Kind="FolderOpen"/>
@@ -34,7 +35,7 @@
                         </StackPanel>
                     </Button>
                     <Button Classes="primaryButton"
-                            Command="{Binding ExportAllBackupCommand}">
+                            Command="{Binding #Root.ExportAllBackupCommand}">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6">
                             <LucideIcon Kind="Archive"/>
@@ -89,21 +90,21 @@
                 </Grid>
                 <StackPanel Orientation="Horizontal"
                             Spacing="8">
-                    <Button Command="{Binding RefreshCacheSizeCommand}">
+                    <Button Command="{Binding #Root.RefreshCacheSizeCommand}">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6">
                             <LucideIcon Kind="RefreshCcw"/>
                             <TextBlock Text="刷新体积"/>
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding OpenCacheDirectoryCommand}">
+                    <Button Command="{Binding #Root.OpenCacheDirectoryCommand}">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6">
                             <LucideIcon Kind="FolderOpen"/>
                             <TextBlock Text="打开缓存目录"/>
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding ClearCacheCommand}">
+                    <Button Command="{Binding #Root.ClearCacheCommand}">
                         <StackPanel Orientation="Horizontal"
                                     Spacing="6">
                             <LucideIcon Kind="Trash2"/>

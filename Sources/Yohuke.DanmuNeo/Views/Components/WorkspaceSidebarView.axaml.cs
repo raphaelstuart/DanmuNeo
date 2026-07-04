@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using CommunityToolkit.Mvvm.Input;
 using Yohuke.DanmuNeo.ViewModels;
 using Yohuke.DanmuNeo.ViewModels.Items;
 
@@ -17,6 +18,78 @@ public partial class WorkspaceSidebarView : UserControl
     public WorkspaceSidebarView()
     {
         InitializeComponent();
+    }
+
+    [RelayCommand]
+    private void OpenAddWorkspaceDialog()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.OpenAddWorkspaceDialog();
+        }
+    }
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.OpenSettings();
+        }
+    }
+
+    [RelayCommand]
+    private void SelectWorkspace(WorkspaceViewModel? workspace)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.SelectWorkspace(workspace);
+        }
+    }
+
+    [RelayCommand]
+    private void SelectRoom(LiveRoomTabViewModel? room)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.SelectRoom(room);
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveWorkspaceUpAsync(WorkspaceViewModel? workspace)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.MoveWorkspaceUpAsync(workspace);
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveWorkspaceDownAsync(WorkspaceViewModel? workspace)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.MoveWorkspaceDownAsync(workspace);
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveRoomUpAsync(LiveRoomTabViewModel? room)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.MoveRoomUpAsync(room);
+        }
+    }
+
+    [RelayCommand]
+    private async Task MoveRoomDownAsync(LiveRoomTabViewModel? room)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            await viewModel.MoveRoomDownAsync(room);
+        }
     }
 
     private async void ExportWorkspace_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
