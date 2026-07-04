@@ -66,7 +66,7 @@ public class AppBackupService
     }
 
     /// <summary>
-    /// 导出配置、工作区、歌词库和备份日志为 zip。
+    /// 导出配置、工作区、歌词库、屏蔽词替换库和备份日志为 zip。
     /// </summary>
     public async Task<string> ExportBackupZipAsync(string outputDirectory, CancellationToken cancellationToken = default)
     {
@@ -104,20 +104,17 @@ public class AppBackupService
 
         if (OperatingSystem.IsMacOS())
         {
-            Process.Start("open", directory);
+            StartProcessWithArgument("open", directory);
             return;
         }
 
         if (OperatingSystem.IsWindows())
         {
-            Process.Start(new ProcessStartInfo("explorer", directory)
-            {
-                UseShellExecute = true
-            });
+            StartProcessWithArgument("explorer", directory);
             return;
         }
 
-        Process.Start("xdg-open", directory);
+        StartProcessWithArgument("xdg-open", directory);
     }
 
     /// <summary>
@@ -144,6 +141,16 @@ public class AppBackupService
         {
             archive.CreateEntryFromFile(filePath, entryName, CompressionLevel.Optimal);
         }
+    }
+
+    private static void StartProcessWithArgument(string fileName, string argument)
+    {
+        var startInfo = new ProcessStartInfo(fileName)
+        {
+            UseShellExecute = false
+        };
+        startInfo.ArgumentList.Add(argument);
+        Process.Start(startInfo);
     }
 
     private static void AddDirectoryIfExists(

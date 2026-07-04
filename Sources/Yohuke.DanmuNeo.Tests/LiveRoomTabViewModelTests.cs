@@ -349,6 +349,82 @@ public class LiveRoomTabViewModelTests
     }
 
     [Fact]
+    public async Task SendDraftAppliesShieldReplacement()
+    {
+        var sendService = new FakeDanmuSendService();
+        var settings = new AppSettings
+        {
+            ShieldReplacementRules =
+            [
+                new()
+                {
+                    SourceText = "猫",
+                    ReplacementText = "狗"
+                }
+            ]
+        };
+        var viewModel = CreateConfiguredViewModel(settings, sendService);
+        viewModel.RoomId = "100";
+        viewModel.InputDraft = "猫来了";
+
+        await viewModel.SendDraftAsync();
+
+        Assert.Equal(["【狗来了】"], sendService.SentMessages);
+    }
+
+    [Fact]
+    public async Task SendCurrentLyricAppliesShieldReplacementWhenEnabled()
+    {
+        var sendService = new FakeDanmuSendService();
+        var settings = new AppSettings
+        {
+            ApplyShieldReplacementToLyrics = true,
+            ShieldReplacementRules =
+            [
+                new()
+                {
+                    SourceText = "猫",
+                    ReplacementText = "狗"
+                }
+            ]
+        };
+        var viewModel = CreateConfiguredViewModel(settings, sendService);
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:01.00]猫来了";
+        viewModel.ApplyLyric();
+
+        await viewModel.SendCurrentLyricAsync();
+
+        Assert.Equal(["【♪狗来了】"], sendService.SentMessages);
+    }
+
+    [Fact]
+    public async Task SendCurrentLyricKeepsOriginalWhenLyricReplacementDisabled()
+    {
+        var sendService = new FakeDanmuSendService();
+        var settings = new AppSettings
+        {
+            ApplyShieldReplacementToLyrics = false,
+            ShieldReplacementRules =
+            [
+                new()
+                {
+                    SourceText = "猫",
+                    ReplacementText = "狗"
+                }
+            ]
+        };
+        var viewModel = CreateConfiguredViewModel(settings, sendService);
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:01.00]猫来了";
+        viewModel.ApplyLyric();
+
+        await viewModel.SendCurrentLyricAsync();
+
+        Assert.Equal(["【♪猫来了】"], sendService.SentMessages);
+    }
+
+    [Fact]
     public async Task AutoLyricSkipsAlreadySentLineByDefault()
     {
         var sendService = new FakeDanmuSendService();

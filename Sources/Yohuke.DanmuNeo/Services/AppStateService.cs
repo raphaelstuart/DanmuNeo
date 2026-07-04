@@ -16,7 +16,9 @@ public class AppStateService
     private const double MAX_WINDOW_HEIGHT = 2400;
     private const double MIN_WORKSPACE_COLUMN_WIDTH = 300;
     private const double MAX_WORKSPACE_COLUMN_WIDTH = 3200;
-    private const int MAX_BACKUP_COUNT_PER_FILE = 20;
+    private const int MIN_BACKUP_COUNT_PER_FILE = 0;
+    private const int MAX_BACKUP_COUNT_PER_FILE = 100;
+    private const int DEFAULT_BACKUP_COUNT_PER_FILE = 10;
     private const string LEGACY_STATE_FILE_NAME = "state.json";
     private const string SETTINGS_FILE_NAME = "settings.json";
     private const string ACCOUNTS_FILE_NAME = "accounts.json";
@@ -128,14 +130,14 @@ public class AppStateService
         Directory.CreateDirectory(BackupDirectory);
         Normalize(state);
 
-        WriteJsonAtomic(SettingsFilePath, state.Settings);
-        WriteJsonAtomic(AccountsFilePath, state.Accounts);
-        WriteJsonAtomic(LyricLibraryFilePath, state.LyricLibrary);
+        WriteJsonAtomic(SettingsFilePath, state.Settings, state.Settings.BackupRetentionCount);
+        WriteJsonAtomic(AccountsFilePath, state.Accounts, state.Settings.BackupRetentionCount);
+        WriteJsonAtomic(LyricLibraryFilePath, state.LyricLibrary, state.Settings.BackupRetentionCount);
         WriteJsonAtomic(WorkspacesFilePath, new WorkspaceStorageState
         {
             Workspaces = state.Workspaces,
             SelectedWorkspaceId = state.SelectedWorkspaceId
-        });
+        }, state.Settings.BackupRetentionCount);
     }
 
     /// <summary>
@@ -147,14 +149,18 @@ public class AppStateService
         Directory.CreateDirectory(BackupDirectory);
         Normalize(state);
 
-        await WriteJsonAtomicAsync(SettingsFilePath, state.Settings, cancellationToken);
-        await WriteJsonAtomicAsync(AccountsFilePath, state.Accounts, cancellationToken);
-        await WriteJsonAtomicAsync(LyricLibraryFilePath, state.LyricLibrary, cancellationToken);
+        await WriteJsonAtomicAsync(SettingsFilePath, state.Settings, state.Settings.BackupRetentionCount, cancellationToken);
+        await WriteJsonAtomicAsync(AccountsFilePath, state.Accounts, state.Settings.BackupRetentionCount, cancellationToken);
+        await WriteJsonAtomicAsync(
+            LyricLibraryFilePath,
+            state.LyricLibrary,
+            state.Settings.BackupRetentionCount,
+            cancellationToken);
         await WriteJsonAtomicAsync(WorkspacesFilePath, new WorkspaceStorageState
         {
             Workspaces = state.Workspaces,
             SelectedWorkspaceId = state.SelectedWorkspaceId
-        }, cancellationToken);
+        }, state.Settings.BackupRetentionCount, cancellationToken);
     }
 
     /// <summary>
@@ -187,6 +193,14 @@ public class AppStateService
     public static double ClampWorkspaceColumnWidth(double width)
     {
         return ClampFinite(width, MIN_WORKSPACE_COLUMN_WIDTH, MAX_WORKSPACE_COLUMN_WIDTH, 0);
+    }
+
+    /// <summary>
+    /// 裁剪自动备份保留数量。
+    /// </summary>
+    public static int ClampBackupRetentionCount(int count)
+    {
+        return Math.Min(MAX_BACKUP_COUNT_PER_FILE, Math.Max(MIN_BACKUP_COUNT_PER_FILE, count));
     }
 
     /// <summary>
@@ -285,7 +299,7 @@ public class AppStateService
         }
     }
 
-    private void WriteJsonAtomic<T>(string path, T value)
+    private void WriteJsonAtomic<T>(string path, T value, int backupRetentionCount)
     {
         var tempFilePath = CreateTempFilePath(path);
 
@@ -293,7 +307,7 @@ public class AppStateService
         {
             var text = JsonSerializer.Serialize(value, JSON_OPTIONS);
             File.WriteAllText(tempFilePath, text);
-            BackupExistingFile(path);
+            BackupExistingFile(path, backupRetentionCount);
             File.Move(tempFilePath, path, true);
         }
         finally
@@ -302,7 +316,11 @@ public class AppStateService
         }
     }
 
-    private async Task WriteJsonAtomicAsync<T>(string path, T value, CancellationToken cancellationToken)
+    private async Task WriteJsonAtomicAsync<T>(
+        string path,
+        T value,
+        int backupRetentionCount,
+        CancellationToken cancellationToken)
     {
         var tempFilePath = CreateTempFilePath(path);
 
@@ -314,7 +332,7 @@ public class AppStateService
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            BackupExistingFile(path);
+            BackupExistingFile(path, backupRetentionCount);
             File.Move(tempFilePath, path, true);
         }
         finally
@@ -323,9 +341,9 @@ public class AppStateService
         }
     }
 
-    private void BackupExistingFile(string path)
+    private void BackupExistingFile(string path, int backupRetentionCount)
     {
-        if (!File.Exists(path))
+        if (!File.Exists(path) || backupRetentionCount <= 0)
         {
             return;
         }
@@ -335,7 +353,7 @@ public class AppStateService
             BackupDirectory,
             $"{Path.GetFileName(path)}.{DateTimeOffset.Now:yyyyMMdd-HHmmss-fff}.bak");
         File.Copy(path, backupFilePath, true);
-        TrimBackups(path);
+        TrimBackups(path, backupRetentionCount);
     }
 
     private void PreserveCorruptFile(string path)
@@ -363,13 +381,13 @@ public class AppStateService
         File.Copy(backupFilePath, path, true);
     }
 
-    private void TrimBackups(string path)
+    private void TrimBackups(string path, int backupRetentionCount)
     {
         var backups = EnumerateBackupFiles(path)
             .OrderByDescending(File.GetLastWriteTimeUtc)
             .ToList();
 
-        foreach (var backupFilePath in backups.Skip(MAX_BACKUP_COUNT_PER_FILE))
+        foreach (var backupFilePath in backups.Skip(backupRetentionCount))
         {
             File.Delete(backupFilePath);
         }
@@ -425,11 +443,13 @@ public class AppStateService
         state.Settings.SidebarWidth = ClampSidebarWidth(state.Settings.SidebarWidth);
         state.Settings.WindowWidth = ClampWindowWidth(state.Settings.WindowWidth);
         state.Settings.WindowHeight = ClampWindowHeight(state.Settings.WindowHeight);
+        state.Settings.BackupRetentionCount = ClampBackupRetentionCount(state.Settings.BackupRetentionCount);
         state.Settings.WorkspaceLiveColumnWidth =
             ClampWorkspaceColumnWidth(state.Settings.WorkspaceLiveColumnWidth);
         state.Settings.WorkspaceToolColumnWidth =
             ClampWorkspaceColumnWidth(state.Settings.WorkspaceToolColumnWidth);
         MarkSymbolService.Normalize(state.Settings);
+        ShieldReplacementService.Normalize(state.Settings);
         ShortcutBindingService.Normalize(state.Settings);
 
         if (state.Workspaces.Count == 0)

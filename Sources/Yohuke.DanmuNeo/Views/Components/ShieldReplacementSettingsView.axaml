@@ -1,0 +1,84 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:state="clr-namespace:Yohuke.DanmuNeo.Models.State"
+             x:Class="Yohuke.DanmuNeo.Views.Components.ShieldReplacementSettingsView"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <StackPanel Spacing="18"
+                IsVisible="{Binding IsShieldReplacementSettingsSelected}">
+        <Border Classes="panel"
+                Padding="14">
+            <StackPanel Spacing="12">
+                <Grid ColumnDefinitions="*,Auto"
+                      ColumnSpacing="8">
+                    <StackPanel>
+                        <TextBlock Text="屏蔽词替换库"
+                                   Classes="sectionTitle"/>
+                        <TextBlock Text="发送前按顺序将匹配文本替换为目标文本。"
+                                   Classes="muted"/>
+                    </StackPanel>
+                    <Button Grid.Column="1"
+                            Command="{Binding AddShieldReplacementRuleCommand}">
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="6">
+                            <LucideIcon Kind="ListPlus"/>
+                            <TextBlock Text="新增规则"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+
+                <CheckBox Content="对歌词生效"
+                          IsChecked="{Binding Settings.ApplyShieldReplacementToLyrics}"/>
+
+                <ItemsControl ItemsSource="{Binding ShieldReplacementRules}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="state:ShieldReplacementRule">
+                            <Border Classes="markGroupCard">
+                                <Grid ColumnDefinitions="*,*,Auto,Auto,Auto"
+                                      ColumnSpacing="8">
+                                    <StackPanel Spacing="4">
+                                        <TextBlock Text="匹配文本"
+                                                   Classes="muted"/>
+                                        <TextBox Text="{Binding SourceText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Watermark="需要替换的文本"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1"
+                                                Spacing="4">
+                                        <TextBlock Text="替换为"
+                                                   Classes="muted"/>
+                                        <TextBox Text="{Binding ReplacementText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Watermark="替换后的文本"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="2"
+                                            Classes="iconButton"
+                                            ToolTip.Tip="上移"
+                                            VerticalAlignment="Bottom"
+                                            Command="{Binding #Root.DataContext.MoveShieldReplacementRuleUpCommand}"
+                                            CommandParameter="{Binding}">
+                                        <LucideIcon Kind="SquareArrowUp"/>
+                                    </Button>
+                                    <Button Grid.Column="3"
+                                            Classes="iconButton"
+                                            ToolTip.Tip="下移"
+                                            VerticalAlignment="Bottom"
+                                            Command="{Binding #Root.DataContext.MoveShieldReplacementRuleDownCommand}"
+                                            CommandParameter="{Binding}">
+                                        <LucideIcon Kind="SquareArrowDown"/>
+                                    </Button>
+                                    <Button Grid.Column="4"
+                                            Classes="iconButton"
+                                            ToolTip.Tip="删除"
+                                            VerticalAlignment="Bottom"
+                                            Command="{Binding #Root.DataContext.DeleteShieldReplacementRuleCommand}"
+                                            CommandParameter="{Binding}">
+                                        <LucideIcon Kind="Trash2"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

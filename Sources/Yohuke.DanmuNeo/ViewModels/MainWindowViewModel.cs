@@ -56,6 +56,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         ShortcutBindingService.Normalize(Settings);
         Accounts = new(State.Accounts);
         SymbolGroups = new(Settings.MarkGroups.OrderBy(group => group.SortOrder));
+        ShieldReplacementRules = new(Settings.ShieldReplacementRules.OrderBy(rule => rule.SortOrder));
         LyricLibrary = new(State.LyricLibrary);
         FilteredLyricLibrary = new(lyricLibraryService.Search(State.LyricLibrary, ""));
         MusicLyricSearchResults = [];
@@ -98,6 +99,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public ObservableCollection<MarkSymbolGroup> SymbolGroups { get; }
 
     /// <summary>
+    /// 屏蔽词替换规则。
+    /// </summary>
+    public ObservableCollection<ShieldReplacementRule> ShieldReplacementRules { get; }
+
+    /// <summary>
     /// 歌词库。
     /// </summary>
     public ObservableCollection<LyricLibraryItem> LyricLibrary { get; }
@@ -136,6 +142,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         new("account", "账号登录", "B 站与音乐账号绑定"),
         new("lyricLibrary", "歌词库", "本地与音乐 API 导入"),
         new("marks", "标签组", "同传与歌词开闭标记"),
+        new("shieldReplacements", "替换库", "屏蔽词文本替换"),
         new("shortcuts", "快捷键", "直播间操作绑定"),
         new("workspace", "工作区设置", "名称、账号覆盖与分享"),
         new("misc", "杂项", "版本、目录与备份")
@@ -182,6 +189,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(IsAccountSettingsSelected));
             OnPropertyChanged(nameof(IsLyricLibrarySettingsSelected));
             OnPropertyChanged(nameof(IsMarkSettingsSelected));
+            OnPropertyChanged(nameof(IsShieldReplacementSettingsSelected));
             OnPropertyChanged(nameof(IsShortcutSettingsSelected));
             OnPropertyChanged(nameof(IsWorkspaceSettingsSelected));
             OnPropertyChanged(nameof(IsMiscSettingsSelected));
@@ -288,6 +296,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// 是否正在显示标签组设置。
     /// </summary>
     public bool IsMarkSettingsSelected => selectedSettingsSectionKey == "marks";
+
+    /// <summary>
+    /// 是否正在显示屏蔽词替换库设置。
+    /// </summary>
+    public bool IsShieldReplacementSettingsSelected => selectedSettingsSectionKey == "shieldReplacements";
 
     /// <summary>
     /// 是否正在显示快捷键设置。
@@ -911,6 +924,45 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
+    /// 从弹幕创建转发规则。
+    /// </summary>
+    public async Task AddDanmuForwardRuleFromFeedAsync(
+        LiveRoomTabViewModel sourceRoom,
+        DanmuFeedItem item,
+        LiveRoomTabViewModel targetRoom)
+    {
+        var sourceWorkspace = Workspaces.FirstOrDefault(workspace => workspace.Rooms.Contains(sourceRoom));
+
+        if (sourceWorkspace is null)
+        {
+            StatusMessage = "未找到来源工作区";
+            return;
+        }
+
+        if (targetRoom.Id == sourceRoom.Id)
+        {
+            StatusMessage = "不能将直播间转发到自身";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(item.UserUid))
+        {
+            StatusMessage = "弹幕缺少用户 UID";
+            return;
+        }
+
+        await targetRoom.AddForwardRuleStateAsync(new()
+        {
+            IsEnabled = false,
+            SourceWorkspaceId = sourceWorkspace.Id,
+            SourceRoomStateId = sourceRoom.Id,
+            SenderUid = item.UserUid.Trim()
+        });
+        RefreshForwardSourceRooms();
+        StatusMessage = $"已添加转发规则：{item.UserName} -> {targetRoom.Header}";
+    }
+
+    /// <summary>
     /// 选择网易云歌词来源。
     /// </summary>
     [RelayCommand]
@@ -1269,6 +1321,56 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public async Task MoveSymbolGroupDownAsync(MarkSymbolGroup? group)
     {
         await MoveSymbolGroupAsync(group, 1);
+    }
+
+    /// <summary>
+    /// 新增屏蔽词替换规则。
+    /// </summary>
+    [RelayCommand]
+    public async Task AddShieldReplacementRuleAsync()
+    {
+        var rule = new ShieldReplacementRule
+        {
+            SourceText = "",
+            ReplacementText = ""
+        };
+        ShieldReplacementRules.Add(rule);
+        RefreshShieldReplacementRuleSortOrder();
+        await SaveAsync();
+    }
+
+    /// <summary>
+    /// 删除屏蔽词替换规则。
+    /// </summary>
+    [RelayCommand]
+    public async Task DeleteShieldReplacementRuleAsync(ShieldReplacementRule? rule)
+    {
+        if (rule is null)
+        {
+            return;
+        }
+
+        ShieldReplacementRules.Remove(rule);
+        RefreshShieldReplacementRuleSortOrder();
+        await SaveAsync();
+    }
+
+    /// <summary>
+    /// 上移屏蔽词替换规则。
+    /// </summary>
+    [RelayCommand]
+    public async Task MoveShieldReplacementRuleUpAsync(ShieldReplacementRule? rule)
+    {
+        await MoveShieldReplacementRuleAsync(rule, -1);
+    }
+
+    /// <summary>
+    /// 下移屏蔽词替换规则。
+    /// </summary>
+    [RelayCommand]
+    public async Task MoveShieldReplacementRuleDownAsync(ShieldReplacementRule? rule)
+    {
+        await MoveShieldReplacementRuleAsync(rule, 1);
     }
 
     /// <summary>
@@ -1743,6 +1845,26 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         await SaveAsync();
     }
 
+    private async Task MoveShieldReplacementRuleAsync(ShieldReplacementRule? rule, int offset)
+    {
+        if (rule is null)
+        {
+            return;
+        }
+
+        var oldIndex = ShieldReplacementRules.IndexOf(rule);
+        var newIndex = oldIndex + offset;
+
+        if (oldIndex < 0 || newIndex < 0 || newIndex >= ShieldReplacementRules.Count)
+        {
+            return;
+        }
+
+        ShieldReplacementRules.Move(oldIndex, newIndex);
+        RefreshShieldReplacementRuleSortOrder();
+        await SaveAsync();
+    }
+
     private void RefreshWorkspaceSortOrder()
     {
         State.Workspaces.Clear();
@@ -1762,6 +1884,17 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         {
             SymbolGroups[index].SortOrder = index;
             Settings.MarkGroups.Add(SymbolGroups[index]);
+        }
+    }
+
+    private void RefreshShieldReplacementRuleSortOrder()
+    {
+        Settings.ShieldReplacementRules.Clear();
+
+        for (var index = 0; index < ShieldReplacementRules.Count; index++)
+        {
+            ShieldReplacementRules[index].SortOrder = index;
+            Settings.ShieldReplacementRules.Add(ShieldReplacementRules[index]);
         }
     }
 

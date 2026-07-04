@@ -16,6 +16,11 @@ public class DanmuFeedItem
     public string UserName { get; set; } = "";
 
     /// <summary>
+    /// 用户 UID。
+    /// </summary>
+    public string UserUid { get; set; } = "";
+
+    /// <summary>
     /// 弹幕内容。
     /// </summary>
     public string Content { get; set; } = "";

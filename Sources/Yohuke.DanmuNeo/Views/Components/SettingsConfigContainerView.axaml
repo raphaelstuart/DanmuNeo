@@ -9,6 +9,7 @@
             <components:AccountSettingsView/>
             <components:LyricLibrarySettingsView/>
             <components:MarkSymbolSettingsView/>
+            <components:ShieldReplacementSettingsView/>
             <components:ShortcutSettingsView/>
             <components:WorkspaceSettingsView/>
             <components:MiscSettingsView/>

@@ -81,6 +81,21 @@ public class AppSettings
     public bool AutoStartListeningWithLivePlayer { get; set; } = true;
 
     /// <summary>
+    /// 屏蔽词替换规则。
+    /// </summary>
+    public List<ShieldReplacementRule> ShieldReplacementRules { get; set; } = [];
+
+    /// <summary>
+    /// 是否对歌词应用屏蔽词替换。
+    /// </summary>
+    public bool ApplyShieldReplacementToLyrics { get; set; } = true;
+
+    /// <summary>
+    /// 每个配置文件保留的自动备份数量。
+    /// </summary>
+    public int BackupRetentionCount { get; set; } = 10;
+
+    /// <summary>
     /// QQ 音乐 Cookie。
     /// </summary>
     public string QQMusicCookie { get; set; } = "";

@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Yohuke.DanmuNeo.Models.Workspace;
@@ -63,6 +64,38 @@ public partial class LiveRoomWorkspaceView : UserControl
         ClearInputDraft();
     }
 
+    private async void ExportTranslateHistory_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not LiveRoomTabViewModel room ||
+            TopLevel.GetTopLevel(this) is not TopLevel topLevel ||
+            !room.HasTranslateHistory)
+        {
+            return;
+        }
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new()
+        {
+            Title = "导出同传历史",
+            SuggestedFileName = $"{CreateTranslateHistoryFileName(room.Header)}.xlsx",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("Excel Workbook")
+                {
+                    Patterns = ["*.xlsx"],
+                    MimeTypes = ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]
+                }
+            ]
+        });
+
+        if (file is null)
+        {
+            return;
+        }
+
+        var filePath = EnsureWorkbookExtension(file.Path.LocalPath);
+        await room.ExportTranslateHistoryToFileAsync(filePath);
+    }
+
     private void InputDraft_OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter || DataContext is not LiveRoomTabViewModel room)
@@ -88,6 +121,120 @@ public partial class LiveRoomWorkspaceView : UserControl
         }
 
         InsertFeedContent(room, item.Content);
+    }
+
+    private static string CreateTranslateHistoryFileName(string roomHeader)
+    {
+        var invalidChars = Path.GetInvalidFileNameChars().ToHashSet();
+        var safeHeader = new string(roomHeader
+            .Select(character => invalidChars.Contains(character) ? '_' : character)
+            .ToArray());
+
+        if (string.IsNullOrWhiteSpace(safeHeader))
+        {
+            safeHeader = "live-room";
+        }
+
+        return $"translate-history-{safeHeader}-{DateTime.Now:yyyyMMdd-HHmmss}";
+    }
+
+    private static string EnsureWorkbookExtension(string filePath)
+    {
+        return string.IsNullOrWhiteSpace(Path.GetExtension(filePath)) ? $"{filePath}.xlsx" : filePath;
+    }
+
+    private void Danmu_OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not Button { DataContext: DanmuFeedItem item } button ||
+            DataContext is not LiveRoomTabViewModel sourceRoom)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        CreateDanmuContextMenu(item, sourceRoom).Open(button);
+    }
+
+    private ContextMenu CreateDanmuContextMenu(DanmuFeedItem item, LiveRoomTabViewModel sourceRoom)
+    {
+        var copyTextItem = new MenuItem
+        {
+            Header = "复制文本"
+        };
+        copyTextItem.Click += async (_, _) => await CopyToClipboardAsync(item.Content);
+
+        var copyUserUidItem = new MenuItem
+        {
+            Header = "复制用户 UID",
+            IsEnabled = !string.IsNullOrWhiteSpace(item.UserUid)
+        };
+        copyUserUidItem.Click += async (_, _) => await CopyToClipboardAsync(item.UserUid);
+
+        var forwardItem = new MenuItem
+        {
+            Header = "引入到工作区转发",
+            IsEnabled = !string.IsNullOrWhiteSpace(item.UserUid)
+        };
+        forwardItem.ItemsSource = CreateForwardTargetMenuItems(item, sourceRoom).ToList();
+
+        return new()
+        {
+            ItemsSource = new object[]
+            {
+                copyTextItem,
+                copyUserUidItem,
+                new Separator(),
+                forwardItem
+            }
+        };
+    }
+
+    private IEnumerable<MenuItem> CreateForwardTargetMenuItems(DanmuFeedItem item, LiveRoomTabViewModel sourceRoom)
+    {
+        if (GetMainWindowViewModel() is not { } viewModel)
+        {
+            yield break;
+        }
+
+        foreach (var workspace in viewModel.Workspaces)
+        {
+            var roomItems = workspace.Rooms
+                .Where(room => room.Id != sourceRoom.Id)
+                .Select(room => CreateForwardRoomMenuItem(viewModel, sourceRoom, item, room))
+                .ToList();
+
+            yield return new()
+            {
+                Header = workspace.Name,
+                ItemsSource = roomItems,
+                IsEnabled = roomItems.Count > 0
+            };
+        }
+    }
+
+    private static MenuItem CreateForwardRoomMenuItem(
+        MainWindowViewModel viewModel,
+        LiveRoomTabViewModel sourceRoom,
+        DanmuFeedItem item,
+        LiveRoomTabViewModel targetRoom)
+    {
+        var menuItem = new MenuItem
+        {
+            Header = targetRoom.Header
+        };
+        menuItem.Click += async (_, _) =>
+            await viewModel.AddDanmuForwardRuleFromFeedAsync(sourceRoom, item, targetRoom);
+        return menuItem;
+    }
+
+    private async Task CopyToClipboardAsync(string text)
+    {
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+
+        if (clipboard is not null)
+        {
+            await clipboard.SetTextAsync(text);
+        }
     }
 
     private void SuperChat_OnClick(object? sender, RoutedEventArgs e)

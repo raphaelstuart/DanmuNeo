@@ -46,6 +46,23 @@
                            Classes="muted"
                            TextWrapping="Wrap"
                            IsVisible="{Binding HasLastBackupPath}"/>
+                <Grid ColumnDefinitions="120,*"
+                      ColumnSpacing="12"
+                      RowSpacing="8">
+                    <TextBlock Text="自动备份"
+                               Classes="muted"
+                               VerticalAlignment="Center"/>
+                    <StackPanel Grid.Column="1"
+                                Spacing="4">
+                        <TextBox Width="120"
+                                 HorizontalAlignment="Left"
+                                 Watermark="10"
+                                 Text="{Binding Settings.BackupRetentionCount}"/>
+                        <TextBlock Text="每个配置文件保留的自动备份数量，0 表示不保留，范围 0-100。"
+                                   Classes="muted"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Border>
 

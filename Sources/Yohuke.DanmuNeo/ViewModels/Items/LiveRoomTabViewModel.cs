@@ -48,6 +48,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private int lastAutoEnteredLyricIndex = -1;
     private readonly DanmuForwardService forwardService = new();
     private readonly LyricTimelineService lyricTimelineService = new();
+    private readonly TranslateHistoryExportService translateHistoryExportService = new();
 
     /// <summary>
     /// 初始化直播间标签页视图模型。
@@ -84,6 +85,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// SC 历史。
     /// </summary>
     public ObservableCollection<SuperChatItem> SuperChats { get; } = [];
+
+    /// <summary>
+    /// 同传发送历史。
+    /// </summary>
+    public ObservableCollection<DanmuFeedItem> TranslateHistoryItems { get; } = [];
 
     /// <summary>
     /// 歌词行。
@@ -352,6 +358,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// </summary>
     public string CurrentLyricTitleText => string.IsNullOrWhiteSpace(LyricTitle) ? "未选择歌词" : LyricTitle;
 
+    /// <summary>
+    /// 是否存在同传历史。
+    /// </summary>
+    public bool HasTranslateHistory => TranslateHistoryItems.Count > 0;
+
     partial void OnLyricInputChanged(string value)
     {
         State.LyricText = value;
@@ -594,7 +605,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
 
         var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
-        var message = $"{markGroup.TranslateOpenMark}{InputDraft.Trim()}{markGroup.TranslateCloseMark}";
+        var content = ShieldReplacementService.Apply(InputDraft.Trim(), settings, false);
+        var message = $"{markGroup.TranslateOpenMark}{content}{markGroup.TranslateCloseMark}";
         await SendMessageAsync(message, account, settings);
         InputDraft = "";
     }
@@ -606,6 +618,47 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     public void ClearInputDraft()
     {
         InputDraft = "";
+    }
+
+    /// <summary>
+    /// 清空同传历史。
+    /// </summary>
+    [RelayCommand]
+    public void ClearTranslateHistory()
+    {
+        TranslateHistoryItems.Clear();
+        OnPropertyChanged(nameof(HasTranslateHistory));
+    }
+
+    /// <summary>
+    /// 导出同传历史。
+    /// </summary>
+    [RelayCommand]
+    public async Task ExportTranslateHistoryAsync()
+    {
+        if (TranslateHistoryItems.Count == 0)
+        {
+            return;
+        }
+
+        var outputDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+        await translateHistoryExportService.ExportAsync(
+            TranslateHistoryItems,
+            outputDirectory,
+            $"translate-history-{Header}");
+    }
+
+    /// <summary>
+    /// 导出同传历史到指定文件。
+    /// </summary>
+    public async Task ExportTranslateHistoryToFileAsync(string filePath)
+    {
+        if (TranslateHistoryItems.Count == 0)
+        {
+            return;
+        }
+
+        await translateHistoryExportService.ExportToFileAsync(TranslateHistoryItems, filePath);
     }
 
     /// <summary>
@@ -875,8 +928,9 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
 
         var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
+        var content = ShieldReplacementService.Apply(line.Content, settings, true);
         var message =
-            LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, line.Content);
+            LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, content);
         await SendMessageAsync(message, account, settings, cancellationToken);
         line.IsSent = true;
         return true;
@@ -1002,8 +1056,33 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             ruleState.SourceRoomStateId = source.RoomStateId;
         }
 
+        await AddForwardRuleStateAsync(ruleState);
+    }
+
+    /// <summary>
+    /// 添加指定转发规则。
+    /// </summary>
+    public async Task AddForwardRuleStateAsync(DanmuForwardRuleState ruleState)
+    {
+        if (string.IsNullOrWhiteSpace(ruleState.MarkSymbolGroupId))
+        {
+            ruleState.MarkSymbolGroupId = getMarkSymbolGroup?.Invoke().Id ?? "";
+        }
+
         State.ForwardRules.Add(ruleState);
-        ForwardRules.Add(new(ruleState, OnForwardRuleChanged));
+        var rule = new DanmuForwardRuleViewModel(ruleState, OnForwardRuleChanged);
+        ForwardRules.Add(rule);
+        RefreshForwardSourceRooms();
+
+        if (rule.IsEnabled)
+        {
+            StartForwardRule(rule);
+        }
+        else
+        {
+            SetForwardRuleStatus(rule, "未启用");
+        }
+
         await SaveStateAsync();
     }
 
@@ -1532,6 +1611,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             {
                 Time = DateTimeOffset.Now,
                 UserName = message.UserName,
+                UserUid = message.Uid.ToString(),
                 Content = message.Content
             });
             Trim(DanmuItems, 300);
@@ -1555,11 +1635,6 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     private void OnSendRecordCreated(object? sender, DanmuFeedItem item)
     {
-        if (item.Status == "已发送")
-        {
-            return;
-        }
-
         if (item.UserName != RoomId)
         {
             return;
@@ -1567,6 +1642,15 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
         Dispatcher.UIThread.Post(() =>
         {
+            TranslateHistoryItems.Insert(0, item);
+            Trim(TranslateHistoryItems, 1000);
+            OnPropertyChanged(nameof(HasTranslateHistory));
+
+            if (item.Status == "已发送")
+            {
+                return;
+            }
+
             DanmuItems.Insert(0, item);
             Trim(DanmuItems, 300);
         });

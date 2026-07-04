@@ -268,6 +268,41 @@ public class AppStateServiceTests
     }
 
     [Fact]
+    public void SaveTrimsBackupsByConfiguredRetentionCount()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        var state = new AppState
+        {
+            Settings = new()
+            {
+                BackupRetentionCount = 1
+            },
+            Workspaces =
+            [
+                new()
+                {
+                    Name = "第一次保存"
+                }
+            ]
+        };
+
+        service.Save(state);
+
+        for (var index = 0; index < 3; index++)
+        {
+            state.Workspaces[0].Name = $"第 {index + 2} 次保存";
+            System.Threading.Thread.Sleep(5);
+            service.Save(state);
+        }
+
+        Assert.Single(Directory.EnumerateFiles(service.BackupDirectory, "settings.json.*.bak"));
+        Assert.Single(Directory.EnumerateFiles(service.BackupDirectory, "accounts.json.*.bak"));
+        Assert.Single(Directory.EnumerateFiles(service.BackupDirectory, "lyric-library.json.*.bak"));
+        Assert.Single(Directory.EnumerateFiles(service.BackupDirectory, "workspaces.json.*.bak"));
+    }
+
+    [Fact]
     public void LoadRestoresWorkspaceFileFromLatestValidBackup()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

@@ -6,6 +6,7 @@ namespace Yohuke.DanmuNeo.Services;
 public static class StartupLog
 {
     private static readonly object LOCKER = new();
+    private static bool isInitialized;
 
     /// <summary>
     /// 追加启动日志。
@@ -22,6 +23,16 @@ public static class StartupLog
 
             lock (LOCKER)
             {
+                if (!isInitialized)
+                {
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
+
+                    isInitialized = true;
+                }
+
                 File.AppendAllText(path, $"{DateTimeOffset.Now:O} {message}{Environment.NewLine}");
             }
         }

@@ -12,8 +12,8 @@ public static class ShortcutActionCatalog
     /// </summary>
     public static IReadOnlyList<ShortcutActionDefinition> Actions { get; } =
     [
-        new(ShortcutActionKeys.LIVE_ROOM_START_LISTENING, "liveRoom", "直播间", "监听开启", "Ctrl+Shift+P"),
-        new(ShortcutActionKeys.LIVE_ROOM_STOP_LISTENING, "liveRoom", "直播间", "监听关闭", "Ctrl+Shift+O"),
+        new(ShortcutActionKeys.LIVE_ROOM_START_LISTENING, "liveRoom", "直播间", "监听开启", "Ctrl+Alt+P"),
+        new(ShortcutActionKeys.LIVE_ROOM_STOP_LISTENING, "liveRoom", "直播间", "监听关闭", "Ctrl+Alt+O"),
         new(ShortcutActionKeys.LIVE_PLAYER_START, "livePlayer", "追帧", "开始播放", "Ctrl+Shift+P"),
         new(ShortcutActionKeys.LIVE_PLAYER_STOP, "livePlayer", "追帧", "停止播放", "Ctrl+Shift+O"),
         new(ShortcutActionKeys.LIVE_PLAYER_CHASE, "livePlayer", "追帧", "追帧刷新", "Ctrl+Shift+R"),
