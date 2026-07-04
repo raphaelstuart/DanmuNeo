@@ -1,6 +1,7 @@
 param(
     [string]$Configuration = "Release",
     [string]$OutputDirectory = "Artifacts/Publish",
+    [string]$Version,
     [switch]$SkipRestore,
     [switch]$Clean
 )
@@ -74,6 +75,25 @@ function Get-ProjectVersion
     return $version
 }
 
+function Resolve-PublishVersion
+{
+    if (-not [string]::IsNullOrWhiteSpace($Version))
+    {
+        $publishVersion = $Version.Trim()
+    }
+    else
+    {
+        $publishVersion = Get-ProjectVersion
+    }
+
+    if ($publishVersion -notmatch '^\d+(\.\d+){1,3}$')
+    {
+        throw "Version must use two to four numeric components, for example 0.0.3 or 1.2.3.4."
+    }
+
+    return $publishVersion
+}
+
 function Invoke-DotNet
 {
     param([string[]]$Arguments)
@@ -90,7 +110,8 @@ function Publish-Runtime
 {
     param(
         [string]$RuntimeIdentifier,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [string]$PublishVersion
     )
 
     New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
@@ -105,6 +126,9 @@ function Publish-Runtime
         "/p:PublishSingleFile=true",
         "/p:IncludeNativeLibrariesForSelfExtract=true",
         "/p:EnableCompressionInSingleFile=true",
+        "/p:Version=$PublishVersion",
+        "/p:AssemblyVersion=$PublishVersion",
+        "/p:FileVersion=$PublishVersion",
         "/p:DebugType=None",
         "/p:DebugSymbols=false"
     )
@@ -262,15 +286,15 @@ if (-not $SkipRestore)
     Invoke-DotNet @("restore", $solutionPath)
 }
 
-$version = Get-ProjectVersion
+$resolvedVersion = Resolve-PublishVersion
 $winPublishPath = Join-Path $publishRoot "win-x64"
 $macRootPath = Join-Path $publishRoot "osx-arm64"
 $macPublishPath = Join-Path $macRootPath "publish"
 $macBundlePath = Join-Path $macRootPath "$appName.app"
 
-Publish-Runtime -RuntimeIdentifier "win-x64" -OutputPath $winPublishPath
-Publish-Runtime -RuntimeIdentifier "osx-arm64" -OutputPath $macPublishPath
-New-MacAppBundle -PublishPath $macPublishPath -BundlePath $macBundlePath -Version $version
+Publish-Runtime -RuntimeIdentifier "win-x64" -OutputPath $winPublishPath -PublishVersion $resolvedVersion
+Publish-Runtime -RuntimeIdentifier "osx-arm64" -OutputPath $macPublishPath -PublishVersion $resolvedVersion
+New-MacAppBundle -PublishPath $macPublishPath -BundlePath $macBundlePath -Version $resolvedVersion
 
 Write-Host "Published Windows app: $winPublishPath"
 Write-Host "Published macOS app: $macBundlePath"
