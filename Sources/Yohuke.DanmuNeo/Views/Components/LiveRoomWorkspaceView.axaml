@@ -5,12 +5,13 @@
              xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components"
              x:Class="Yohuke.DanmuNeo.Views.Components.LiveRoomWorkspaceView"
              x:CompileBindings="False">
-    <Grid>
+    <Grid x:Name="WorkspaceColumns">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" MinWidth="360" />
-            <ColumnDefinition Width="16" />
-            <ColumnDefinition Width="*" MinWidth="420" />
+            <ColumnDefinition Width="2*" MinWidth="420" />
+            <ColumnDefinition Width="2" />
+            <ColumnDefinition Width="*" MinWidth="300" />
         </Grid.ColumnDefinitions>
+
         <Border Classes="panel"
                 Padding="14">
             <Grid RowDefinitions="Auto,*,Auto"
@@ -48,29 +49,208 @@
                     </Button>
                 </Grid>
 
-                <TabControl Grid.Row="1"
-                            Classes="workspaceToolTabs">
+                <Grid Grid.Row="1"
+                      RowDefinitions="Auto,*"
+                      RowSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                        <ComboBox ItemsSource="{Binding LiveQualityOptions}"
+                                  SelectedItem="{Binding SelectedLiveQuality}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate DataType="workspace:LiveQualityOption">
+                                    <TextBlock Text="{Binding Description}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="1"
+                                ToolTip.Tip="播放直播"
+                                Classes="iconButton"
+                                Command="{Binding PlayLiveCommand}">
+                            <LucideIcon Kind="CirclePlay" />
+                        </Button>
+                        <Button Grid.Column="2"
+                                ToolTip.Tip="停止播放"
+                                Classes="iconButton"
+                                Command="{Binding StopLivePlayerCommand}">
+                            <LucideIcon Kind="CircleStop" />
+                        </Button>
+                        <Button Grid.Column="3"
+                                ToolTip.Tip="追帧"
+                                Classes="iconButton"
+                                Command="{Binding ChaseLiveCommand}">
+                            <LucideIcon Kind="RefreshCw" />
+                        </Button>
+                    </Grid>
+
+                    <Grid Grid.Row="1">
+                        <Border x:Name="LivePlayerHost"
+                                Classes="livePlayerSurface" />
+                    </Grid>
+                </Grid>
+
+                <Border Grid.Row="2" Classes="translateComposer">
+                    <Grid RowDefinitions="*,Auto"
+                          RowSpacing="8">
+                        <Grid>
+                            <TextBox x:Name="InputDraftTextBox"
+                                     Classes="translateComposerInput"
+                                     Text="{Binding InputDraft}"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="False"
+                                     KeyDown="InputDraft_OnKeyDown" />
+                            <TextBlock Text="输入同传内容"
+                                       Classes="muted"
+                                       IsHitTestVisible="False"
+                                       IsVisible="{Binding IsInputDraftEmpty}" />
+                        </Grid>
+                        <Grid Grid.Row="1"
+                              ColumnDefinitions="*,Auto"
+                              ColumnSpacing="10">
+                            <ComboBox Classes="translateComposerMarkSelector"
+                                      ItemsSource="{Binding DataContext.SymbolGroups, RelativeSource={RelativeSource AncestorType=Window}}"
+                                      SelectedItem="{Binding DataContext.SelectedWorkspaceMarkGroup, RelativeSource={RelativeSource AncestorType=Window}}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate DataType="state:MarkSymbolGroup">
+                                        <TextBlock Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Button Grid.Column="1"
+                                    Classes="translateComposerSendButton"
+                                    ToolTip.Tip="发送同传"
+                                    Command="{Binding SendDraftCommand}">
+                                <StackPanel Orientation="Horizontal"
+                                            Spacing="6">
+                                    <LucideIcon Kind="Send" />
+                                    <TextBlock Text="发送" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="1"
+                      Width="2"
+                      Classes="workspaceSplitter"
+                      ResizeDirection="Columns"
+                      ResizeBehavior="PreviousAndNext"
+                      PointerReleased="WorkspaceSplitter_OnPointerReleased" />
+
+        <Grid Grid.Column="2">
+            <Border Classes="panel"
+                    Padding="14">
+                <TabControl Classes="workspaceToolTabs">
+                    <TabItem Header="弹幕">
+                        <Grid RowDefinitions="*"
+                              RowSpacing="10"
+                              Margin="0,10,0,0">
+                            <ScrollViewer x:Name="DanmuScrollViewer"
+                                          Grid.Row="0">
+                                <ItemsControl x:Name="DanmuItemsControl"
+                                              ItemsSource="{Binding DanmuItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="workspace:DanmuFeedItem">
+                                            <Button Classes="danmuFeedButton"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    Click="Danmu_OnClick">
+                                                <Grid ColumnDefinitions="96,*"
+                                                      ColumnSpacing="10">
+                                                    <StackPanel Spacing="1">
+                                                        <TextBlock Text="{Binding UserName}"
+                                                                   Classes="danmuFeedUser"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding DetailLine}"
+                                                                   Classes="danmuFeedMeta"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Content}"
+                                                               Classes="danmuFeedContent"
+                                                               TextWrapping="Wrap" />
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+                    </TabItem>
+
+                    <TabItem Header="SC">
+                        <Grid RowDefinitions="*"
+                              RowSpacing="10"
+                              Margin="0,10,0,0">
+                            <ListBox Grid.Row="0"
+                                     Classes="feedList"
+                                     ItemsSource="{Binding SuperChats}">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="workspace:SuperChatItem">
+                                        <Button Classes="scFeedButton"
+                                                HorizontalAlignment="Stretch"
+                                                HorizontalContentAlignment="Stretch"
+                                                Click="SuperChat_OnClick">
+                                            <Grid ColumnDefinitions="96,*"
+                                                  ColumnSpacing="10">
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="{Binding UserName}"
+                                                               Classes="danmuFeedUser"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding DetailLine}"
+                                                               Classes="danmuFeedMeta"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Content}"
+                                                           Classes="danmuFeedContent"
+                                                           TextWrapping="Wrap" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
+                    </TabItem>
+
                     <TabItem Header="歌词">
                         <Grid RowDefinitions="Auto,*"
                               RowSpacing="8"
                               Margin="0,10,0,0">
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto"
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto"
                                   ColumnSpacing="8">
-                                <TextBox Text="{Binding LyricTitle}"
-                                         Watermark="歌曲名" />
-                                <Button Grid.Column="1"
+                                <TextBlock Text="{Binding CurrentLyricTitleText}"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           FontWeight="SemiBold" />
+                                <Grid Grid.Column="1"
+                                      ColumnDefinitions="Auto,56,Auto"
+                                      ColumnSpacing="4"
+                                      VerticalAlignment="Center">
+                                    <TextBlock Text="速率"
+                                               Classes="muted"
+                                               VerticalAlignment="Center" />
+                                    <TextBox Grid.Column="1"
+                                             Classes="lyricRateInput"
+                                             Text="{Binding LyricPlaybackRate, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                    <TextBlock Grid.Column="2"
+                                               Text="x"
+                                               Classes="muted"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                                <Button Grid.Column="2"
                                         ToolTip.Tip="打开歌词库"
                                         Classes="iconButton"
                                         Command="{Binding DataContext.OpenLyricLibraryPickerCommand, RelativeSource={RelativeSource AncestorType=Window}}">
                                     <LucideIcon Kind="Library" />
                                 </Button>
-                                <Button Grid.Column="2"
+                                <Button Grid.Column="3"
                                         ToolTip.Tip="自动/暂停"
                                         Classes="iconButton"
                                         Command="{Binding ToggleAutoLyricCommand}">
                                     <LucideIcon Kind="CirclePlay" />
                                 </Button>
-                                <Button Grid.Column="3"
+                                <Button Grid.Column="4"
                                         ToolTip.Tip="停止歌词发送"
                                         Classes="iconButton"
                                         Command="{Binding StopAutoLyricCommand}">
@@ -78,11 +258,12 @@
                                 </Button>
                             </Grid>
                             <ListBox Grid.Row="1"
+                                     Classes="lyricLineList"
                                      ItemsSource="{Binding Lyrics}">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate DataType="workspace:LyricLineState">
                                         <Grid ColumnDefinitions="56,*"
-                                              Margin="0,2">
+                                              Margin="0,1">
                                             <TextBlock Text="{Binding Timeline}"
                                                        Classes="muted" />
                                             <TextBlock Grid.Column="1"
@@ -94,6 +275,7 @@
                             </ListBox>
                         </Grid>
                     </TabItem>
+
                     <TabItem Header="转发">
                         <Grid RowDefinitions="Auto,*"
                               RowSpacing="10"
@@ -181,164 +363,41 @@
                         </Grid>
                     </TabItem>
                 </TabControl>
+            </Border>
 
-                <Border Grid.Row="2"
-                        Classes="translateComposer">
-                    <Grid RowDefinitions="*,Auto"
-                          RowSpacing="8">
-                        <Grid>
-                            <TextBox x:Name="InputDraftTextBox"
-                                     Classes="translateComposerInput"
-                                     Text="{Binding InputDraft}"
-                                     TextWrapping="Wrap"
-                                     AcceptsReturn="False"
-                                     KeyDown="InputDraft_OnKeyDown" />
-                            <TextBlock Text="输入同传内容"
-                                       Classes="muted"
-                                       IsHitTestVisible="False"
-                                       IsVisible="{Binding IsInputDraftEmpty}" />
-                        </Grid>
-                        <Grid Grid.Row="1"
-                              ColumnDefinitions="*,Auto"
-                              ColumnSpacing="10">
-                            <ComboBox Classes="translateComposerMarkSelector"
-                                      ItemsSource="{Binding DataContext.SymbolGroups, RelativeSource={RelativeSource AncestorType=Window}}"
-                                      SelectedItem="{Binding DataContext.SelectedWorkspaceMarkGroup, RelativeSource={RelativeSource AncestorType=Window}}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate DataType="state:MarkSymbolGroup">
-                                        <TextBlock Text="{Binding Name}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
+            <Border Classes="lyricPickerOverlay"
+                    IsVisible="{Binding DataContext.IsLyricLibraryPickerOpen, RelativeSource={RelativeSource AncestorType=Window}}"
+                    DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+                <Border Classes="lyricPickerPanel">
+                    <Grid RowDefinitions="Auto,*"
+                          RowSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto"
+                              ColumnSpacing="8">
+                            <StackPanel>
+                                <TextBlock Text="歌词库"
+                                           Classes="sectionTitle" />
+                                <TextBlock Text="选择后会加载到当前直播间"
+                                           Classes="muted" />
+                            </StackPanel>
                             <Button Grid.Column="1"
-                                    Classes="translateComposerSendButton"
-                                    ToolTip.Tip="发送同传"
-                                    Command="{Binding SendDraftCommand}">
-                                <StackPanel Orientation="Horizontal"
-                                            Spacing="6">
-                                    <LucideIcon Kind="Send" />
-                                    <TextBlock Text="发送" />
-                                </StackPanel>
+                                    Classes="iconButton"
+                                    ToolTip.Tip="关闭"
+                                    Command="{Binding CloseLyricLibraryPickerCommand}">
+                                <LucideIcon Kind="X" />
                             </Button>
                         </Grid>
+                        <ScrollViewer Grid.Row="1">
+                            <StackPanel Spacing="14">
+                                <components:LyricOnlineImportView LoadToCurrentRoom="True" />
+                                <Border BorderBrush="{DynamicResource AppBorderBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="0,12,0,0">
+                                    <components:LyricLibraryListView />
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
                     </Grid>
                 </Border>
-            </Grid>
-        </Border>
-
-        <Border Grid.Column="0"
-                Classes="lyricPickerOverlay"
-                IsVisible="{Binding DataContext.IsLyricLibraryPickerOpen, RelativeSource={RelativeSource AncestorType=Window}}"
-                DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-            <Border Classes="lyricPickerPanel">
-                <Grid RowDefinitions="Auto,*"
-                      RowSpacing="12">
-                    <Grid ColumnDefinitions="*,Auto"
-                          ColumnSpacing="8">
-                        <StackPanel>
-                            <TextBlock Text="歌词库"
-                                       Classes="sectionTitle" />
-                            <TextBlock Text="选择后会加载到当前直播间"
-                                       Classes="muted" />
-                        </StackPanel>
-                        <Button Grid.Column="1"
-                                Classes="iconButton"
-                                ToolTip.Tip="关闭"
-                                Command="{Binding CloseLyricLibraryPickerCommand}">
-                            <LucideIcon Kind="X" />
-                        </Button>
-                    </Grid>
-                    <ScrollViewer Grid.Row="1">
-                        <StackPanel Spacing="14">
-                            <components:LyricOnlineImportView LoadToCurrentRoom="True" />
-                            <Border BorderBrush="{DynamicResource AppBorderBrush}"
-                                    BorderThickness="0,1,0,0"
-                                    Padding="0,12,0,0">
-                                <components:LyricLibraryListView />
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-        </Border>
-
-        <Grid Grid.Column="2"
-              RowDefinitions="*,16,260">
-            <Border Classes="panel"
-                    Padding="14">
-                <Grid RowDefinitions="Auto,*">
-                    <TextBlock Text="当前弹幕"
-                               Classes="sectionTitle" />
-                    <ScrollViewer x:Name="DanmuScrollViewer"
-                                  Grid.Row="1"
-                                  Margin="0,10,0,0">
-                        <ItemsControl x:Name="DanmuItemsControl"
-                                      ItemsSource="{Binding DanmuItems}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="workspace:DanmuFeedItem">
-                                    <Button Classes="danmuFeedButton"
-                                            HorizontalAlignment="Stretch"
-                                            HorizontalContentAlignment="Stretch"
-                                            Click="Danmu_OnClick">
-                                        <Grid ColumnDefinitions="96,*"
-                                              ColumnSpacing="10">
-                                            <StackPanel Spacing="1">
-                                                <TextBlock Text="{Binding UserName}"
-                                                           Classes="danmuFeedUser"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding DetailLine}"
-                                                           Classes="danmuFeedMeta"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{Binding Content}"
-                                                       Classes="danmuFeedContent"
-                                                       TextWrapping="Wrap" />
-                                        </Grid>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </Grid>
-            </Border>
-
-            <Border Grid.Row="2"
-                    Classes="panel"
-                    Padding="14">
-                <Grid RowDefinitions="Auto,*">
-                    <TextBlock Text="历史 SC"
-                               Classes="sectionTitle" />
-                    <ListBox Grid.Row="1"
-                             Classes="feedList"
-                             ItemsSource="{Binding SuperChats}"
-                             Margin="0,10,0,0">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="workspace:SuperChatItem">
-                                <Button Classes="scFeedButton"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        Click="SuperChat_OnClick">
-                                    <Grid ColumnDefinitions="96,*"
-                                          ColumnSpacing="10">
-                                        <StackPanel Spacing="1">
-                                            <TextBlock Text="{Binding UserName}"
-                                                       Classes="danmuFeedUser"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding DetailLine}"
-                                                       Classes="danmuFeedMeta"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding Content}"
-                                                   Classes="danmuFeedContent"
-                                                   TextWrapping="Wrap" />
-                                    </Grid>
-                                </Button>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Grid>
             </Border>
         </Grid>
     </Grid>

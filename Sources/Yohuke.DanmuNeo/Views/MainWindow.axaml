@@ -15,41 +15,41 @@
         Title="{Binding WindowTitle}">
 
     <Design.DataContext>
-        <viewModels:MainWindowViewModel/>
+        <viewModels:MainWindowViewModel />
     </Design.DataContext>
 
     <Grid Classes="rootSurface">
         <Grid.RowDefinitions>
-            <RowDefinition Height="42"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="42" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <components:TitleBarView Grid.Row="0"/>
+        <components:TitleBarView Grid.Row="0" />
 
         <Grid Grid.Row="1"
               x:Name="MainColumns">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="240" MinWidth="200" MaxWidth="360"/>
-                <ColumnDefinition Width="6"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="240" MinWidth="200" MaxWidth="360" />
+                <ColumnDefinition Width="2" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <components:WorkspaceSidebarView Grid.Column="0"/>
+            <components:WorkspaceSidebarView Grid.Column="0" />
 
             <GridSplitter Grid.Column="1" Width="2"
                           Classes="sidebarSplitter"
                           ResizeDirection="Columns"
                           ResizeBehavior="PreviousAndNext"
-                          PointerReleased="SidebarSplitter_OnPointerReleased"/>
+                          PointerReleased="SidebarSplitter_OnPointerReleased" />
 
             <Grid Grid.Column="2"
                   Margin="16,10,16,16">
-                <components:WorkspaceTabsView/>
-                <components:AddWorkspaceDialogView/>
-                <components:ConfirmDeleteDialogView/>
+                <components:WorkspaceTabsView />
+                <components:AddWorkspaceDialogView />
             </Grid>
         </Grid>
 
-        <components:SettingsOverlayView Grid.Row="1"/>
+        <components:SettingsOverlayView Grid.Row="1" />
+        <components:ConfirmDeleteDialogView Grid.Row="1" />
     </Grid>
 </Window>

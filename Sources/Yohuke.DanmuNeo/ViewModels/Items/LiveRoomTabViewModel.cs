@@ -17,6 +17,10 @@ namespace Yohuke.DanmuNeo.ViewModels.Items;
 /// </summary>
 public partial class LiveRoomTabViewModel : ViewModelBase
 {
+    private const double MIN_LYRIC_PLAYBACK_RATE = 0.25;
+    private const double MAX_LYRIC_PLAYBACK_RATE = 3.0;
+    private const double DEFAULT_LYRIC_PLAYBACK_RATE = 1.0;
+
     private CancellationTokenSource? listenTokenSource;
     private CancellationTokenSource? lyricTokenSource;
     private readonly Dictionary<string, CancellationTokenSource> forwardTokenSources = [];
@@ -29,7 +33,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private Func<Task>? saveState;
     private DanmuSendService? sendService;
     private AvatarCacheService? avatarCacheService;
+    private IBilibiliLiveStreamService? liveStreamService;
+    private ILivePlayerService? livePlayerService;
     private Bitmap? avatarImage;
+    private string? livePlayerToken;
+    private bool suppressLiveQualityChange;
     private readonly DanmuForwardService forwardService = new();
     private readonly LyricTimelineService lyricTimelineService = new();
 
@@ -42,6 +50,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         inputDraft = state.InputDraft;
         lyricInput = state.LyricText;
         lyricTitle = state.LyricTitle;
+        lyricPlaybackRate = NormalizeLyricPlaybackRate(state.LyricPlaybackRate);
+        state.LyricPlaybackRate = lyricPlaybackRate;
         avatarPath = state.AvatarPath;
         RefreshAvatarImage();
         ForwardRules =
@@ -77,6 +87,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// 可选转发源直播间。
     /// </summary>
     public ObservableCollection<ForwardSourceRoomOption> ForwardSourceRooms { get; } = [];
+
+    /// <summary>
+    /// 直播清晰度选项。
+    /// </summary>
+    public ObservableCollection<LiveQualityOption> LiveQualityOptions { get; } = [];
 
     /// <summary>
     /// 标签页 ID。
@@ -174,6 +189,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     [ObservableProperty] private string lyricTitle = "";
 
+    [ObservableProperty] private double lyricPlaybackRate = DEFAULT_LYRIC_PLAYBACK_RATE;
+
     [ObservableProperty] private string connectionStatus = "未连接";
 
     [ObservableProperty] private bool isListening;
@@ -181,6 +198,12 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     [ObservableProperty] private bool isLyricAutoSending;
 
     [ObservableProperty] private string avatarPath = "";
+
+    [ObservableProperty] private bool isLivePlayerVisible;
+
+    [ObservableProperty] private string livePlayerUrl = "";
+
+    [ObservableProperty] private LiveQualityOption? selectedLiveQuality;
 
     /// <summary>
     /// 是否未监听。
@@ -201,6 +224,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// 是否没有主播头像。
     /// </summary>
     public bool HasNoAvatar => !HasAvatar;
+
+    /// <summary>
+    /// 是否隐藏直播播放器。
+    /// </summary>
+    public bool IsLivePlayerHidden => !IsLivePlayerVisible;
 
     /// <summary>
     /// 主播头像位图。
@@ -231,6 +259,21 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         OnPropertyChanged(nameof(ListenToggleText));
     }
 
+    partial void OnIsLivePlayerVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsLivePlayerHidden));
+    }
+
+    partial void OnSelectedLiveQualityChanged(LiveQualityOption? value)
+    {
+        if (suppressLiveQualityChange || !IsLivePlayerVisible)
+        {
+            return;
+        }
+
+        _ = RefreshLivePlayerAsync();
+    }
+
     [ObservableProperty] private bool isSelected;
 
     [ObservableProperty] private int activeLyricIndex;
@@ -246,6 +289,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// </summary>
     public bool IsInputDraftEmpty => string.IsNullOrWhiteSpace(InputDraft);
 
+    /// <summary>
+    /// 当前歌词标题展示文本。
+    /// </summary>
+    public string CurrentLyricTitleText => string.IsNullOrWhiteSpace(LyricTitle) ? "未选择歌词" : LyricTitle;
+
     partial void OnLyricInputChanged(string value)
     {
         State.LyricText = value;
@@ -254,6 +302,20 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     partial void OnLyricTitleChanged(string value)
     {
         State.LyricTitle = value;
+        OnPropertyChanged(nameof(CurrentLyricTitleText));
+    }
+
+    partial void OnLyricPlaybackRateChanged(double value)
+    {
+        var normalizedValue = NormalizeLyricPlaybackRate(value);
+
+        if (Math.Abs(normalizedValue - value) > double.Epsilon)
+        {
+            LyricPlaybackRate = normalizedValue;
+            return;
+        }
+
+        State.LyricPlaybackRate = normalizedValue;
     }
 
     partial void OnAvatarPathChanged(string value)
@@ -276,7 +338,9 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         Func<LiveRoomTabViewModel, IEnumerable<ForwardSourceRoomOption>> getForwardSourceRooms,
         DanmuSendService sendService,
         AvatarCacheService avatarCacheService,
-        Func<Task> saveState)
+        Func<Task> saveState,
+        IBilibiliLiveStreamService? liveStreamService = null,
+        ILivePlayerService? livePlayerService = null)
     {
         this.resolveAccount = resolveAccount;
         this.resolveAccountByRoom = resolveAccountByRoom;
@@ -287,6 +351,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         this.sendService = sendService;
         this.avatarCacheService = avatarCacheService;
         this.saveState = saveState;
+        this.liveStreamService = liveStreamService;
+        this.livePlayerService = livePlayerService;
         sendService.RecordCreated += OnSendRecordCreated;
         ApplyLyric();
     }
@@ -639,14 +705,22 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// </summary>
     public void RefreshForwardSourceRooms()
     {
-        ForwardSourceRooms.Clear();
-
         if (getForwardSourceRooms is null)
+        {
+            ForwardSourceRooms.Clear();
+            return;
+        }
+
+        var nextSources = getForwardSourceRooms(this).ToList();
+
+        if (ForwardSourceRooms.Select(source => source.Key).SequenceEqual(nextSources.Select(source => source.Key)))
         {
             return;
         }
 
-        foreach (var source in getForwardSourceRooms(this))
+        ForwardSourceRooms.Clear();
+
+        foreach (var source in nextSources)
         {
             ForwardSourceRooms.Add(source);
         }
@@ -661,6 +735,54 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         {
             StopForwardRule(rule);
         }
+    }
+
+    /// <summary>
+    /// 开始播放直播。
+    /// </summary>
+    [RelayCommand]
+    public async Task PlayLiveAsync()
+    {
+        await StartLivePlayerAsync(false);
+    }
+
+    /// <summary>
+    /// 刷新直播播放器。
+    /// </summary>
+    [RelayCommand]
+    public async Task RefreshLivePlayerAsync()
+    {
+        await StartLivePlayerAsync(false);
+    }
+
+    /// <summary>
+    /// 追到最新直播流。
+    /// </summary>
+    [RelayCommand]
+    public async Task ChaseLiveAsync()
+    {
+        await StartLivePlayerAsync(true);
+    }
+
+    /// <summary>
+    /// 刷新直播清晰度。
+    /// </summary>
+    [RelayCommand]
+    public async Task RefreshLiveQualitiesAsync()
+    {
+        await RefreshLiveSourceAsync(false);
+    }
+
+    /// <summary>
+    /// 停止直播播放。
+    /// </summary>
+    [RelayCommand]
+    public void StopLivePlayer()
+    {
+        livePlayerService?.Revoke(livePlayerToken);
+        livePlayerToken = null;
+        LivePlayerUrl = "";
+        IsLivePlayerVisible = false;
     }
 
     /// <summary>
@@ -702,6 +824,76 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         InsertDanmuContent(superChat.Content);
     }
 
+    private async Task StartLivePlayerAsync(bool isChasing)
+    {
+        if (liveStreamService is null || livePlayerService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var account = resolveAccount?.Invoke(this);
+            var source = await RefreshLiveSourceAsync(true);
+            var oldToken = livePlayerToken;
+            var session = await livePlayerService.CreatePlayerAsync(source, account?.Cookie);
+
+            livePlayerService.Revoke(oldToken);
+            livePlayerToken = session.Token;
+            LivePlayerUrl = session.PlayerUrl;
+            IsLivePlayerVisible = true;
+        }
+        catch
+        {
+            if (string.IsNullOrWhiteSpace(livePlayerToken))
+            {
+                IsLivePlayerVisible = false;
+            }
+        }
+    }
+
+    private async Task<LiveStreamPlaySource> RefreshLiveSourceAsync(bool throwOnError)
+    {
+        if (liveStreamService is null)
+        {
+            throw new InvalidOperationException("直播流服务未初始化");
+        }
+
+        try
+        {
+            var account = resolveAccount?.Invoke(this);
+            var settings = getSettings?.Invoke();
+            var source = await liveStreamService.GetPlayableSourceAsync(
+                RoomId,
+                SelectedLiveQuality?.Quality ?? 0,
+                account?.Cookie,
+                settings is null ? null : TimeSpan.FromSeconds(settings.TimeoutSeconds));
+
+            RefreshLiveQualityOptions(source.QualityOptions, source.CurrentQuality);
+
+            return source;
+        }
+        catch when (!throwOnError)
+        {
+            return new();
+        }
+    }
+
+    private void RefreshLiveQualityOptions(IEnumerable<LiveQualityOption> qualityOptions, int currentQuality)
+    {
+        suppressLiveQualityChange = true;
+        LiveQualityOptions.Clear();
+
+        foreach (var option in qualityOptions)
+        {
+            LiveQualityOptions.Add(option);
+        }
+
+        SelectedLiveQuality = LiveQualityOptions.FirstOrDefault(option => option.Quality == currentQuality) ??
+                              LiveQualityOptions.FirstOrDefault();
+        suppressLiveQualityChange = false;
+    }
+
     /// <summary>
     /// 加载歌词库条目。
     /// </summary>
@@ -710,6 +902,27 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         LyricTitle = item.Title;
         LyricInput = string.IsNullOrWhiteSpace(item.TranslatedLyricText) ? item.LyricText : item.TranslatedLyricText;
         ApplyLyric();
+    }
+
+    /// <summary>
+    /// 计算歌词自动发送等待时间。
+    /// </summary>
+    public static TimeSpan CalculateLyricPlaybackWait(TimeSpan due, TimeSpan elapsed, double playbackRate)
+    {
+        var normalizedRate = NormalizeLyricPlaybackRate(playbackRate);
+        var scaledDue = TimeSpan.FromTicks((long)Math.Round(due.Ticks / normalizedRate));
+        var wait = scaledDue - elapsed;
+        return wait > TimeSpan.Zero ? wait : TimeSpan.Zero;
+    }
+
+    private static double NormalizeLyricPlaybackRate(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
+        {
+            return DEFAULT_LYRIC_PLAYBACK_RATE;
+        }
+
+        return Math.Clamp(value, MIN_LYRIC_PLAYBACK_RATE, MAX_LYRIC_PLAYBACK_RATE);
     }
 
     private void OnForwardRuleChanged(DanmuForwardRuleViewModel rule)
@@ -914,7 +1127,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
                 }
 
                 var due = TimeSpan.FromSeconds(Math.Max(0, line.TimeSeconds - firstTime));
-                var wait = due - (DateTimeOffset.Now - start);
+                var wait = CalculateLyricPlaybackWait(due, DateTimeOffset.Now - start, LyricPlaybackRate);
 
                 if (wait > TimeSpan.Zero)
                 {

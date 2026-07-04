@@ -56,6 +56,11 @@ public class LiveRoomTabState
     public string LyricText { get; set; } = "";
 
     /// <summary>
+    /// 歌词自动播放速率。
+    /// </summary>
+    public double LyricPlaybackRate { get; set; } = 1.0;
+
+    /// <summary>
     /// 弹幕转发规则。
     /// </summary>
     public List<DanmuForwardRuleState> ForwardRules { get; set; } = [];

@@ -12,7 +12,7 @@ namespace Yohuke.DanmuNeo.ViewModels;
 /// <summary>
 /// 主窗口视图模型。
 /// </summary>
-public partial class MainWindowViewModel : ViewModelBase
+public partial class MainWindowViewModel : ViewModelBase, IDisposable
 {
     private readonly AppStateService stateService;
     private readonly WorkspaceShareService workspaceShareService = new();
@@ -24,6 +24,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly AppDirectoryService appDirectoryService;
     private readonly AppBackupService appBackupService;
     private readonly AvatarCacheService avatarCacheService;
+    private readonly BilibiliLiveStreamService liveStreamService = new();
+    private readonly LivePlayerService livePlayerService = new();
     private WorkspaceViewModel? addDialogWorkspace;
     private WorkspaceViewModel? deleteDialogWorkspace;
     private LiveRoomTabViewModel? deleteDialogRoom;
@@ -394,6 +396,11 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        if (SelectedWorkspace != workspace)
+        {
+            SelectedWorkspace?.SelectedRoom?.StopLivePlayer();
+        }
+
         SelectedWorkspace = workspace;
         workspace.RefreshRoomSelection();
         RefreshTreeSelection();
@@ -415,6 +422,11 @@ public partial class MainWindowViewModel : ViewModelBase
         if (workspace is null)
         {
             return;
+        }
+
+        if (SelectedWorkspace?.SelectedRoom != room)
+        {
+            SelectedWorkspace?.SelectedRoom?.StopLivePlayer();
         }
 
         SelectedWorkspace = workspace;
@@ -630,6 +642,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             room.StopListening();
             room.StopForwarding();
+            room.StopLivePlayer();
         }
 
         State.Workspaces.Remove(workspace.State);
@@ -683,6 +696,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         room.StopListening();
         room.StopForwarding();
+        room.StopLivePlayer();
         workspace.RemoveRoom(room);
 
         if (SelectedWorkspace == workspace)
@@ -1360,6 +1374,12 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task SaveAsync()
     {
         Settings.SidebarWidth = AppStateService.ClampSidebarWidth(Settings.SidebarWidth);
+        Settings.WindowWidth = AppStateService.ClampWindowWidth(Settings.WindowWidth);
+        Settings.WindowHeight = AppStateService.ClampWindowHeight(Settings.WindowHeight);
+        Settings.WorkspaceLiveColumnWidth =
+            AppStateService.ClampWorkspaceColumnWidth(Settings.WorkspaceLiveColumnWidth);
+        Settings.WorkspaceToolColumnWidth =
+            AppStateService.ClampWorkspaceColumnWidth(Settings.WorkspaceToolColumnWidth);
         await stateService.SaveAsync(State);
         StatusMessage = $"已保存 {DateTime.Now:HH:mm:ss}";
     }
@@ -1444,8 +1464,23 @@ public partial class MainWindowViewModel : ViewModelBase
             CreateForwardSourceRoomOptions,
             danmuSendService,
             avatarCacheService,
-            SaveAsync);
+            SaveAsync,
+            liveStreamService,
+            livePlayerService);
         _ = room.LoadAvatarAsync();
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        foreach (var room in Workspaces.SelectMany(workspace => workspace.Rooms))
+        {
+            room.StopLivePlayer();
+        }
+
+        livePlayerService.Dispose();
+        avatarCacheService.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private BilibiliAccount? ResolveAccount(LiveRoomTabViewModel room)

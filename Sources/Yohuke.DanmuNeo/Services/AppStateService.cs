@@ -10,12 +10,19 @@ public class AppStateService
 {
     private const double MIN_SIDEBAR_WIDTH = 200;
     private const double MAX_SIDEBAR_WIDTH = 360;
+    private const double MIN_WINDOW_WIDTH = 980;
+    private const double MAX_WINDOW_WIDTH = 3840;
+    private const double MIN_WINDOW_HEIGHT = 640;
+    private const double MAX_WINDOW_HEIGHT = 2400;
+    private const double MIN_WORKSPACE_COLUMN_WIDTH = 300;
+    private const double MAX_WORKSPACE_COLUMN_WIDTH = 3200;
     private const int MAX_BACKUP_COUNT_PER_FILE = 20;
     private const string LEGACY_STATE_FILE_NAME = "state.json";
     private const string SETTINGS_FILE_NAME = "settings.json";
     private const string ACCOUNTS_FILE_NAME = "accounts.json";
     private const string LYRIC_LIBRARY_FILE_NAME = "lyric-library.json";
     private const string WORKSPACES_FILE_NAME = "workspaces.json";
+
     private static readonly JsonSerializerOptions JSON_OPTIONS = new()
     {
         WriteIndented = true,
@@ -155,7 +162,31 @@ public class AppStateService
     /// </summary>
     public static double ClampSidebarWidth(double width)
     {
-        return Math.Min(MAX_SIDEBAR_WIDTH, Math.Max(MIN_SIDEBAR_WIDTH, width));
+        return ClampFinite(width, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, 240);
+    }
+
+    /// <summary>
+    /// 裁剪主窗口宽度。
+    /// </summary>
+    public static double ClampWindowWidth(double width)
+    {
+        return ClampFinite(width, MIN_WINDOW_WIDTH, MAX_WINDOW_WIDTH, 1280);
+    }
+
+    /// <summary>
+    /// 裁剪主窗口高度。
+    /// </summary>
+    public static double ClampWindowHeight(double height)
+    {
+        return ClampFinite(height, MIN_WINDOW_HEIGHT, MAX_WINDOW_HEIGHT, 820);
+    }
+
+    /// <summary>
+    /// 裁剪工作区列宽。
+    /// </summary>
+    public static double ClampWorkspaceColumnWidth(double width)
+    {
+        return ClampFinite(width, MIN_WORKSPACE_COLUMN_WIDTH, MAX_WORKSPACE_COLUMN_WIDTH, 0);
     }
 
     /// <summary>
@@ -194,13 +225,13 @@ public class AppStateService
     private bool HasSplitStorage()
     {
         return File.Exists(SettingsFilePath) ||
-            File.Exists(AccountsFilePath) ||
-            File.Exists(LyricLibraryFilePath) ||
-            File.Exists(WorkspacesFilePath) ||
-            HasBackups(SettingsFilePath) ||
-            HasBackups(AccountsFilePath) ||
-            HasBackups(LyricLibraryFilePath) ||
-            HasBackups(WorkspacesFilePath);
+               File.Exists(AccountsFilePath) ||
+               File.Exists(LyricLibraryFilePath) ||
+               File.Exists(WorkspacesFilePath) ||
+               HasBackups(SettingsFilePath) ||
+               HasBackups(AccountsFilePath) ||
+               HasBackups(LyricLibraryFilePath) ||
+               HasBackups(WorkspacesFilePath);
     }
 
     private T LoadJsonOrDefault<T>(string path, Func<T> createDefault)
@@ -223,7 +254,8 @@ public class AppStateService
             }
 
             RestoreBackup(path, backupFilePath);
-            StartupLog.Append($"Recovered state file from backup file={Path.GetFileName(path)} backup={Path.GetFileName(backupFilePath)}");
+            StartupLog.Append(
+                $"Recovered state file from backup file={Path.GetFileName(path)} backup={Path.GetFileName(backupFilePath)}");
             return value;
         }
 
@@ -315,11 +347,13 @@ public class AppStateService
                 CorruptDirectory,
                 $"{Path.GetFileName(path)}.{DateTimeOffset.Now:yyyyMMdd-HHmmss-fff}.corrupt");
             File.Copy(path, corruptFilePath, true);
-            StartupLog.Append($"Preserved corrupt state file file={Path.GetFileName(path)} corrupt={Path.GetFileName(corruptFilePath)}");
+            StartupLog.Append(
+                $"Preserved corrupt state file file={Path.GetFileName(path)} corrupt={Path.GetFileName(corruptFilePath)}");
         }
         catch (Exception exception)
         {
-            StartupLog.Append($"Preserve corrupt state file failed file={Path.GetFileName(path)} exception={exception.Message}");
+            StartupLog.Append(
+                $"Preserve corrupt state file failed file={Path.GetFileName(path)} exception={exception.Message}");
         }
     }
 
@@ -389,6 +423,12 @@ public class AppStateService
         state.LyricLibrary ??= [];
         state.Workspaces ??= [];
         state.Settings.SidebarWidth = ClampSidebarWidth(state.Settings.SidebarWidth);
+        state.Settings.WindowWidth = ClampWindowWidth(state.Settings.WindowWidth);
+        state.Settings.WindowHeight = ClampWindowHeight(state.Settings.WindowHeight);
+        state.Settings.WorkspaceLiveColumnWidth =
+            ClampWorkspaceColumnWidth(state.Settings.WorkspaceLiveColumnWidth);
+        state.Settings.WorkspaceToolColumnWidth =
+            ClampWorkspaceColumnWidth(state.Settings.WorkspaceToolColumnWidth);
         MarkSymbolService.Normalize(state.Settings);
 
         if (state.Workspaces.Count == 0)
@@ -457,7 +497,8 @@ public class AppStateService
                 }
             }
 
-            if (workspace.LiveRooms.Count > 0 && workspace.LiveRooms.All(room => room.Id != workspace.SelectedLiveRoomId))
+            if (workspace.LiveRooms.Count > 0 &&
+                workspace.LiveRooms.All(room => room.Id != workspace.SelectedLiveRoomId))
             {
                 workspace.SelectedLiveRoomId = workspace.LiveRooms[0].Id;
             }
@@ -487,5 +528,20 @@ public class AppStateService
         }
 
         return state;
+    }
+
+    private static double ClampFinite(double value, double minValue, double maxValue, double defaultValue)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            return defaultValue;
+        }
+
+        if (value <= 0)
+        {
+            return defaultValue;
+        }
+
+        return Math.Min(maxValue, Math.Max(minValue, value));
     }
 }

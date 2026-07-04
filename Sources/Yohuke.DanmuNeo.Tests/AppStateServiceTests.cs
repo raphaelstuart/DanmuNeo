@@ -59,6 +59,33 @@ public class AppStateServiceTests
     }
 
     [Fact]
+    public void SaveAndLoadNormalizesLayoutSettings()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        var state = new AppState
+        {
+            Settings = new()
+            {
+                SidebarWidth = 999,
+                WindowWidth = 100,
+                WindowHeight = 9999,
+                WorkspaceLiveColumnWidth = 250,
+                WorkspaceToolColumnWidth = 500
+            }
+        };
+
+        service.Save(state);
+        var loaded = service.Load();
+
+        Assert.Equal(360, loaded.Settings.SidebarWidth);
+        Assert.Equal(980, loaded.Settings.WindowWidth);
+        Assert.Equal(2400, loaded.Settings.WindowHeight);
+        Assert.Equal(300, loaded.Settings.WorkspaceLiveColumnWidth);
+        Assert.Equal(500, loaded.Settings.WorkspaceToolColumnWidth);
+    }
+
+    [Fact]
     public void SaveAndLoadKeepsWorkspaceAndRoomSortOrder()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

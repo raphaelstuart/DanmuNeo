@@ -23,8 +23,16 @@ public partial class MainWindow : Window
         {
             if (DataContext is MainWindowViewModel viewModel)
             {
+                SaveWindowSize(viewModel);
                 viewModel.Settings.SidebarWidth = AppStateService.ClampSidebarWidth(GetSidebarColumn().ActualWidth);
                 await viewModel.SaveAsync();
+            }
+        };
+        Closed += (_, _) =>
+        {
+            if (DataContext is IDisposable disposable)
+            {
+                disposable.Dispose();
             }
         };
     }
@@ -33,6 +41,8 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel viewModel)
         {
+            Width = AppStateService.ClampWindowWidth(viewModel.Settings.WindowWidth);
+            Height = AppStateService.ClampWindowHeight(viewModel.Settings.WindowHeight);
             GetSidebarColumn().Width = new(AppStateService.ClampSidebarWidth(viewModel.Settings.SidebarWidth));
         }
     }
@@ -50,5 +60,16 @@ public partial class MainWindow : Window
     private ColumnDefinition GetSidebarColumn()
     {
         return MainColumns.ColumnDefinitions[0];
+    }
+
+    private void SaveWindowSize(MainWindowViewModel viewModel)
+    {
+        if (WindowState != WindowState.Normal)
+        {
+            return;
+        }
+
+        viewModel.Settings.WindowWidth = AppStateService.ClampWindowWidth(Width);
+        viewModel.Settings.WindowHeight = AppStateService.ClampWindowHeight(Height);
     }
 }

@@ -77,6 +77,43 @@ public class BilibiliApi : BaseApi
     }
 
     /// <summary>
+    /// 获取直播间播放地址。
+    /// </summary>
+    public Task<ApiResponse<BilibiliLivePlayInfoData>> GetRoomPlayInfoAsync(
+        long roomId,
+        int quality = 0,
+        string? cookie = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var headers = CreateLiveHeaders();
+
+        if (!string.IsNullOrWhiteSpace(cookie))
+        {
+            headers["Cookie"] = ApiCookieHelper.CreateBilibiliCookie(cookie);
+        }
+
+        headers["Referer"] = $"https://live.bilibili.com/{roomId}";
+
+        return GetJsonAsync<ApiResponse<BilibiliLivePlayInfoData>>(
+            "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo",
+            new Dictionary<string, object?>
+            {
+                ["room_id"] = roomId,
+                ["protocol"] = "0,1",
+                ["format"] = "0,1,2",
+                ["codec"] = "0,1",
+                ["qn"] = quality,
+                ["platform"] = "web",
+                ["ptype"] = 8,
+                ["dolby"] = 5
+            },
+            headers,
+            timeout,
+            cancellationToken);
+    }
+
+    /// <summary>
     /// 获取用户在直播间内的可用弹幕颜色、弹幕位置等信息。
     /// </summary>
     public Task<ApiResponse<BilibiliDanmuConfigData>> GetDanmuConfigAsync(

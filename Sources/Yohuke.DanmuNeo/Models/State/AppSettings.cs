@@ -91,4 +91,24 @@ public class AppSettings
     /// 左侧栏宽度。
     /// </summary>
     public double SidebarWidth { get; set; } = 240;
+
+    /// <summary>
+    /// 主窗口宽度。
+    /// </summary>
+    public double WindowWidth { get; set; } = 1280;
+
+    /// <summary>
+    /// 主窗口高度。
+    /// </summary>
+    public double WindowHeight { get; set; } = 820;
+
+    /// <summary>
+    /// 工作区直播区域列宽。
+    /// </summary>
+    public double WorkspaceLiveColumnWidth { get; set; }
+
+    /// <summary>
+    /// 工作区工具区域列宽。
+    /// </summary>
+    public double WorkspaceToolColumnWidth { get; set; }
 }

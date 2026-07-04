@@ -17,6 +17,7 @@
         <Folder Include="Apis\Models\" />
         <Folder Include="Models\" />
         <AvaloniaResource Include="Assets\**" />
+        <EmbeddedResource Include="Assets\Player\mpegts.js" LogicalName="Yohuke.DanmuNeo.Assets.Player.mpegts.js" />
     </ItemGroup>
 
     <ItemGroup>

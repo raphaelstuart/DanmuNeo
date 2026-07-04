@@ -1,0 +1,554 @@
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
+using System.Text;
+using Yohuke.DanmuNeo.Apis;
+using Yohuke.DanmuNeo.Models.Workspace;
+
+namespace Yohuke.DanmuNeo.Services;
+
+/// <summary>
+/// 用本地 HTTP 服务承载直播播放器页面并代理 B 站直播流。
+/// </summary>
+public class LivePlayerService : ILivePlayerService, IDisposable
+{
+    private const string MPEGTS_RESOURCE_NAME = "Yohuke.DanmuNeo.Assets.Player.mpegts.js";
+    private readonly Dictionary<string, LivePlayerStreamEntry> streams = [];
+    private readonly Lock gate = new();
+
+    private readonly HttpClient httpClient = new()
+    {
+        Timeout = Timeout.InfiniteTimeSpan
+    };
+
+    private HttpListener? listener;
+    private CancellationTokenSource? listenerTokenSource;
+    private int port;
+    private string? mpegtsScript;
+
+    /// <inheritdoc/>
+    public Task<LivePlayerSession> CreatePlayerAsync(
+        LiveStreamPlaySource source,
+        string? cookie,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureStarted();
+
+        var token = Guid.NewGuid().ToString("N");
+        var entry = new LivePlayerStreamEntry
+        {
+            StreamUrl = source.StreamUrl,
+            RoomId = source.RoomId,
+            Cookie = ApiCookieHelper.CreateBilibiliCookie(cookie ?? "")
+        };
+
+        lock (gate)
+        {
+            streams[token] = entry;
+        }
+
+        var playerUrl =
+            $"http://127.0.0.1:{port}/player?token={Uri.EscapeDataString(token)}&v={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+
+        return Task.FromResult(new LivePlayerSession
+        {
+            Token = token,
+            PlayerUrl = playerUrl
+        });
+    }
+
+    /// <inheritdoc/>
+    public void Revoke(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return;
+        }
+
+        LivePlayerStreamEntry? entry;
+
+        lock (gate)
+        {
+            if (!streams.Remove(token, out entry))
+            {
+                return;
+            }
+        }
+
+        entry.CancellationTokenSource.Cancel();
+        entry.CancellationTokenSource.Dispose();
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        listenerTokenSource?.Cancel();
+        listener?.Close();
+        httpClient.Dispose();
+
+        lock (gate)
+        {
+            foreach (var entry in streams.Values)
+            {
+                entry.CancellationTokenSource.Cancel();
+                entry.CancellationTokenSource.Dispose();
+            }
+
+            streams.Clear();
+        }
+
+        listenerTokenSource?.Dispose();
+    }
+
+    private void EnsureStarted()
+    {
+        if (listener is not null)
+        {
+            return;
+        }
+
+        port = GetFreePort();
+        listenerTokenSource = new();
+        listener = new();
+        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+        listener.Start();
+        _ = Task.Run(() => ListenAsync(listenerTokenSource.Token));
+    }
+
+    private async Task ListenAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested && listener is not null && listener.IsListening)
+        {
+            HttpListenerContext context;
+
+            try
+            {
+                context = await listener.GetContextAsync();
+            }
+            catch when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception exception)
+            {
+                StartupLog.Append($"Live player listener failed exception={exception}");
+                break;
+            }
+
+            _ = Task.Run(() => HandleRequestAsync(context, cancellationToken), cancellationToken);
+        }
+    }
+
+    private async Task HandleRequestAsync(HttpListenerContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var path = context.Request.Url?.AbsolutePath ?? "";
+
+            if (path == "/player")
+            {
+                await WriteTextAsync(context.Response, CreatePlayerHtml(), "text/html; charset=utf-8",
+                    cancellationToken);
+                return;
+            }
+
+            if (path == "/mpegts.js")
+            {
+                await WriteTextAsync(context.Response, GetMpegtsScript(), "application/javascript; charset=utf-8",
+                    cancellationToken);
+                return;
+            }
+
+            if (path.StartsWith("/stream/", StringComparison.Ordinal))
+            {
+                await ProxyStreamAsync(context, path["/stream/".Length..], cancellationToken);
+                return;
+            }
+
+            context.Response.StatusCode = 404;
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Append($"Live player request failed exception={exception}");
+
+            if (context.Response.OutputStream.CanWrite)
+            {
+                context.Response.StatusCode = 500;
+                await WriteTextAsync(context.Response, "播放器服务错误", "text/plain; charset=utf-8", cancellationToken);
+                return;
+            }
+        }
+        finally
+        {
+            TryClose(context.Response);
+        }
+    }
+
+    private async Task ProxyStreamAsync(
+        HttpListenerContext context,
+        string rawToken,
+        CancellationToken serviceCancellationToken)
+    {
+        var token = Uri.UnescapeDataString(rawToken);
+        LivePlayerStreamEntry? entry;
+
+        lock (gate)
+        {
+            streams.TryGetValue(token, out entry);
+        }
+
+        if (entry is null)
+        {
+            context.Response.StatusCode = 404;
+            await WriteTextAsync(context.Response, "直播流已失效", "text/plain; charset=utf-8", serviceCancellationToken);
+            return;
+        }
+
+        using var linkedTokenSource =
+            CancellationTokenSource.CreateLinkedTokenSource(serviceCancellationToken,
+                entry.CancellationTokenSource.Token);
+        using var request = new HttpRequestMessage(HttpMethod.Get, entry.StreamUrl);
+        request.Headers.TryAddWithoutValidation("User-Agent", BaseApi.DEFAULT_USER_AGENT);
+        request.Headers.TryAddWithoutValidation("Accept", "*/*");
+        request.Headers.TryAddWithoutValidation("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+        request.Headers.TryAddWithoutValidation("Cache-Control", "no-cache");
+        request.Headers.TryAddWithoutValidation("Origin", "https://live.bilibili.com");
+        request.Headers.TryAddWithoutValidation("Referer", $"https://live.bilibili.com/{entry.RoomId}");
+
+        if (!string.IsNullOrWhiteSpace(entry.Cookie))
+        {
+            request.Headers.TryAddWithoutValidation("Cookie", entry.Cookie);
+        }
+
+        using var response = await httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            linkedTokenSource.Token);
+        StartupLog.Append(
+            $"Live player upstream roomId={entry.RoomId} status={(int)response.StatusCode} contentType={response.Content.Headers.ContentType} host={request.RequestUri?.Host}");
+        context.Response.StatusCode = (int)response.StatusCode;
+        context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "video/x-flv";
+        context.Response.Headers["Access-Control-Allow-Origin"] = "*";
+        context.Response.Headers["Cache-Control"] = "no-store";
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorText = $"直播流请求失败：{(int)response.StatusCode} {response.ReasonPhrase}";
+            await WriteTextAsync(context.Response, errorText, "text/plain; charset=utf-8", linkedTokenSource.Token);
+            return;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(linkedTokenSource.Token);
+        await stream.CopyToAsync(context.Response.OutputStream, linkedTokenSource.Token);
+    }
+
+    private static async Task WriteTextAsync(
+        HttpListenerResponse response,
+        string text,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text);
+        response.ContentType = contentType;
+        response.ContentLength64 = bytes.Length;
+        await response.OutputStream.WriteAsync(bytes, cancellationToken);
+    }
+
+    private string GetMpegtsScript()
+    {
+        if (mpegtsScript is not null)
+        {
+            return mpegtsScript;
+        }
+
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(MPEGTS_RESOURCE_NAME) ??
+                           throw new InvalidOperationException("播放器脚本资源缺失");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        mpegtsScript = reader.ReadToEnd();
+        return mpegtsScript;
+    }
+
+    private static string CreatePlayerHtml()
+    {
+        return """
+               <!doctype html>
+               <html lang="zh-CN">
+               <head>
+                 <meta charset="utf-8">
+                 <meta name="viewport" content="width=device-width, initial-scale=1">
+                 <style>
+                   html, body { width: 100%; height: 100%; margin: 0; background: #05080c; color: #d8dee9; font-family: sans-serif; overflow: hidden; }
+                   #root { position: fixed; inset: 0; display: grid; }
+                   video { width: 100%; height: 100%; object-fit: contain; background: #05080c; }
+                   #status { position: absolute; left: 12px; bottom: 10px; padding: 6px 8px; border-radius: 6px; background: rgba(5, 8, 12, 0.72); font-size: 12px; }
+                   video::-webkit-media-controls-timeline { display: none; }
+                   video::-webkit-media-controls-current-time-display { display: none; }
+                   video::-webkit-media-controls-time-remaining-display { display: none; }
+                   video::-webkit-media-controls-seek-back-button { display: none; }
+                   video::-webkit-media-controls-seek-forward-button { display: none; }
+                 </style>
+               </head>
+               <body>
+                 <div id="root">
+                   <video id="player" autoplay playsinline></video>
+                   <div id="status">正在连接直播流...</div>
+                 </div>
+                 <script src="/mpegts.js"></script>
+                 <script>
+                   const params = new URLSearchParams(location.search);
+                   const token = params.get("token") || "";
+                   const status = document.getElementById("status");
+                   const video = document.getElementById("player");
+                   let player = null;
+                   let retryCount = 0;
+                   let recoveryCount = 0;
+                   let watchdogTimer = null;
+                   let recoveryTimer = null;
+                   let isRecovering = false;
+                   let lastActiveAt = Date.now();
+                   let lastCurrentTime = 0;
+                   let stuckSince = 0;
+                   const maxRetries = 5;
+                   const maxRecoveries = 5;
+                   const waitingTimeoutMs = 8000;
+                   const stuckTimeoutMs = 10000;
+                   const edgeRemainSeconds = 1.2;
+
+                   function setStatus(text) {
+                     status.textContent = text;
+                   }
+
+                   function playVideoByUserGesture() {
+                     if (!video.paused && !video.ended) {
+                       return;
+                     }
+
+                     video.play().catch((error) => setStatus(`点击播放器开始播放：${error && error.message ? error.message : ""}`));
+                   }
+
+                   function destroyPlayer() {
+                     if (watchdogTimer) {
+                       clearInterval(watchdogTimer);
+                       watchdogTimer = null;
+                     }
+
+                     if (recoveryTimer) {
+                       clearTimeout(recoveryTimer);
+                       recoveryTimer = null;
+                     }
+
+                     isRecovering = false;
+
+                     if (!player) {
+                       return;
+                     }
+
+                     try {
+                       player.unload();
+                       player.detachMediaElement();
+                       player.destroy();
+                     } catch {
+                     }
+
+                     player = null;
+                   }
+
+                   function markActive() {
+                     lastActiveAt = Date.now();
+                     stuckSince = 0;
+                   }
+
+                   function markNetworkActive() {
+                     lastActiveAt = Date.now();
+                   }
+
+                   function seekToLiveEdge() {
+                     const buffered = video.buffered;
+
+                     if (!buffered || buffered.length <= 0) {
+                       return false;
+                     }
+
+                     const edge = buffered.end(buffered.length - 1);
+                     const target = Math.max(0, edge - edgeRemainSeconds);
+
+                     if (!Number.isFinite(target) || Math.abs(video.currentTime - target) < 0.2) {
+                       return false;
+                     }
+
+                     video.currentTime = target;
+                     setStatus("直播卡住，正在跳到最新缓冲...");
+                     return true;
+                   }
+
+                   function recoverFromStuck(reason) {
+                     if (isRecovering) {
+                       return;
+                     }
+
+                     isRecovering = true;
+
+                     if (recoveryCount >= maxRecoveries) {
+                       setStatus(`${reason}，已停止自动恢复，请点击追帧。`);
+                       destroyPlayer();
+                       return;
+                     }
+
+                     recoveryCount++;
+
+                     if (seekToLiveEdge()) {
+                       lastActiveAt = Date.now();
+                       lastCurrentTime = video.currentTime || 0;
+                       stuckSince = 0;
+                       isRecovering = false;
+                       return;
+                     }
+
+                     retryCount++;
+                     setStatus(`${reason}，正在重建直播流（${recoveryCount}/${maxRecoveries}）...`);
+                     recoveryTimer = setTimeout(() => {
+                       recoveryTimer = null;
+                       createPlayer();
+                     }, 500);
+                   }
+
+                   function startWatchdog() {
+                     if (watchdogTimer) {
+                       clearInterval(watchdogTimer);
+                     }
+
+                     lastActiveAt = Date.now();
+                     lastCurrentTime = video.currentTime || 0;
+                     stuckSince = 0;
+                     watchdogTimer = setInterval(() => {
+                       const now = Date.now();
+                       const currentTime = video.currentTime || 0;
+                       const isTimeMoving = Math.abs(currentTime - lastCurrentTime) > 0.05;
+                       lastCurrentTime = currentTime;
+
+                       if (isTimeMoving) {
+                         markActive();
+                         return;
+                       }
+
+                       if (video.paused || video.ended) {
+                         return;
+                       }
+
+                       if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA &&
+                           now - lastActiveAt > waitingTimeoutMs) {
+                         recoverFromStuck("直播缓冲超时");
+                         return;
+                       }
+
+                       if (!stuckSince) {
+                         stuckSince = now;
+                       }
+
+                       if (now - stuckSince > stuckTimeoutMs) {
+                         recoverFromStuck("直播画面卡住");
+                       }
+                     }, 1000);
+                   }
+
+                   function createPlayer() {
+                     if (!token) {
+                       setStatus("直播流令牌缺失");
+                       return;
+                     }
+
+                     if (!window.mpegts || !mpegts.isSupported()) {
+                       setStatus("当前 WebView 不支持 MSE 直播播放");
+                       return;
+                     }
+
+                     destroyPlayer();
+                     startWatchdog();
+                     setStatus(retryCount > 0 ? `正在重新连接直播流（${retryCount}/${maxRetries}）...` : "正在连接直播流...");
+                     const streamUrl = new URL(`/stream/${encodeURIComponent(token)}?v=${Date.now()}`, location.href).toString();
+                     player = mpegts.createPlayer({
+                       type: "flv",
+                       isLive: true,
+                       url: streamUrl
+                     }, {
+                       enableWorker: true,
+                       enableStashBuffer: false,
+                       liveBufferLatencyChasing: true,
+                       liveBufferLatencyChasingOnPaused: true,
+                       liveSync: true,
+                       liveSyncPlaybackRate: 1.4,
+                       autoCleanupSourceBuffer: true
+                     });
+                     player.attachMediaElement(video);
+                     player.load();
+                     player.on(mpegts.Events.ERROR, (errorType, errorDetail, errorInfo) => {
+                       const infoText = typeof errorInfo === "string"
+                         ? errorInfo
+                         : JSON.stringify(errorInfo || {});
+                       const message = `播放中断：${errorType || "Unknown"} / ${errorDetail || "Unknown"} ${infoText}`;
+                       setStatus(message);
+                       console.error(message, errorInfo);
+
+                       if (retryCount >= maxRetries) {
+                         setStatus(`${message}。已停止自动重连，请点击追帧或播放重试。`);
+                         destroyPlayer();
+                         return;
+                       }
+
+                       if (isRecovering) {
+                         return;
+                       }
+
+                       isRecovering = true;
+                       retryCount++;
+                       recoveryTimer = setTimeout(() => {
+                         recoveryTimer = null;
+                         createPlayer();
+                       }, 1500);
+                     });
+                     video.onplaying = () => {
+                       retryCount = 0;
+                       isRecovering = false;
+                       markActive();
+                       setStatus(recoveryCount > 0 ? "直播已恢复" : "播放中");
+                     };
+                     video.ontimeupdate = () => markActive();
+                     video.onprogress = () => markNetworkActive();
+                     video.onwaiting = () => setStatus("缓冲中，正在监测直播状态...");
+                     video.onstalled = () => recoverFromStuck("直播流停止响应");
+                     video.onerror = () => {
+                       const error = video.error;
+                       setStatus(error ? `播放器错误：${error.code}` : "播放器错误");
+                     };
+                     video.play().catch((error) => setStatus(`点击播放器开始播放：${error && error.message ? error.message : ""}`));
+                   }
+
+                   window.addEventListener("beforeunload", destroyPlayer);
+                   video.addEventListener("click", playVideoByUserGesture);
+                   createPlayer();
+                 </script>
+               </body>
+               </html>
+               """;
+    }
+
+    private static int GetFreePort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    private static void TryClose(HttpListenerResponse response)
+    {
+        try
+        {
+            response.Close();
+        }
+        catch
+        {
+        }
+    }
+}
