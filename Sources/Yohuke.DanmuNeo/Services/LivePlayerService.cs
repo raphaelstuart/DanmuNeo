@@ -281,6 +281,8 @@ public class LivePlayerService : ILivePlayerService, IDisposable
                    #root { position: fixed; inset: 0; display: grid; }
                    video { width: 100%; height: 100%; object-fit: contain; background: #05080c; }
                    #status { position: absolute; left: 12px; bottom: 10px; padding: 6px 8px; border-radius: 6px; background: rgba(5, 8, 12, 0.72); font-size: 12px; }
+                   #soundGate { position: absolute; right: 12px; top: 10px; padding: 7px 10px; border: 1px solid rgba(216, 222, 233, 0.28); border-radius: 6px; background: rgba(5, 8, 12, 0.78); color: #d8dee9; font-size: 12px; cursor: pointer; }
+                   #soundGate.hidden { display: none; }
                    video::-webkit-media-controls-timeline { display: none; }
                    video::-webkit-media-controls-current-time-display { display: none; }
                    video::-webkit-media-controls-time-remaining-display { display: none; }
@@ -290,41 +292,116 @@ public class LivePlayerService : ILivePlayerService, IDisposable
                </head>
                <body>
                  <div id="root">
-                   <video id="player" autoplay playsinline></video>
+                   <video id="player" autoplay muted playsinline></video>
                    <div id="status">正在连接直播流...</div>
+                   <button id="soundGate" type="button">点击开启声音</button>
                  </div>
                  <script src="/mpegts.js"></script>
                  <script>
                    const params = new URLSearchParams(location.search);
                    const token = params.get("token") || "";
+                   const root = document.getElementById("root");
                    const status = document.getElementById("status");
+                   const soundGate = document.getElementById("soundGate");
                    const video = document.getElementById("player");
                    let player = null;
                    let retryCount = 0;
                    let recoveryCount = 0;
                    let watchdogTimer = null;
-                   let recoveryTimer = null;
-                   let isRecovering = false;
-                   let lastActiveAt = Date.now();
-                   let lastCurrentTime = 0;
-                   let stuckSince = 0;
-                   const maxRetries = 5;
-                   const maxRecoveries = 5;
-                   const waitingTimeoutMs = 8000;
-                   const stuckTimeoutMs = 10000;
-                   const edgeRemainSeconds = 1.2;
+                       let recoveryTimer = null;
+                       let isRecovering = false;
+                       let soundUnlocked = false;
+                       let requestedVolume = 1;
+                       let requestedMuted = false;
+                       let lastActiveAt = Date.now();
+                       let lastTimelineActiveAt = Date.now();
+                       let lastVideoFrameAt = Date.now();
+                       let lastCurrentTime = 0;
+                       let lastDecodedFrames = 0;
+                       let lastVideoSizeText = "";
+                       let lastMediaInfo = null;
+                       let lastStatisticsInfo = null;
+                       let hasVideoOutput = false;
+                       let canTrackDecodedFrames = false;
+                       let stuckSince = 0;
+                       const maxRetries = 5;
+                       const maxRecoveries = 5;
+                       const waitingTimeoutMs = 8000;
+                       const noVideoTimeoutMs = 8000;
+                       const videoFrameTimeoutMs = 10000;
+                       const stuckTimeoutMs = 10000;
+                       const edgeRemainSeconds = 1.2;
 
                    function setStatus(text) {
                      status.textContent = text;
                    }
 
-                   function playVideoByUserGesture() {
-                     if (!video.paused && !video.ended) {
+                   function setSoundGateVisible(isVisible) {
+                     soundGate.classList.toggle("hidden", !isVisible);
+                   }
+
+                   function applyAudioState() {
+                     video.volume = requestedVolume;
+                     video.muted = requestedMuted || !soundUnlocked;
+                     setSoundGateVisible(!requestedMuted && !soundUnlocked);
+                   }
+
+                   function getPlaybackStatusText() {
+                     const message = recoveryCount > 0 ? "直播已恢复" : "播放中";
+
+                     if (video.muted) {
+                       return requestedMuted ? `${message}（已静音）` : `${message}（点击开启声音）`;
+                     }
+
+                     return message;
+                   }
+
+                   function setPlaybackStatus() {
+                     setStatus(getPlaybackStatusText());
+                   }
+
+                   function handlePlayFailure(error) {
+                     const message = error && error.message ? error.message : "";
+
+                     if (error && error.name === "NotAllowedError") {
+                       setStatus(`点击播放器开始播放${message ? `：${message}` : ""}`);
+                       setSoundGateVisible(!requestedMuted);
                        return;
                      }
 
-                     video.play().catch((error) => setStatus(`点击播放器开始播放：${error && error.message ? error.message : ""}`));
+                     setStatus(`播放启动失败${message ? `：${message}` : ""}`);
                    }
+
+                   function playVideo() {
+                     const promise = video.play();
+
+                     if (promise) {
+                       promise.then(setPlaybackStatus).catch(handlePlayFailure);
+                     }
+                   }
+
+                   function unlockSoundByUserGesture() {
+                     if (!soundUnlocked) {
+                       soundUnlocked = true;
+                       applyAudioState();
+                       setPlaybackStatus();
+                     }
+
+                     playVideo();
+                   }
+
+                   window.yohukeSetLivePlayerAudio = (volume, isMuted) => {
+                     const normalizedVolume = Number(volume);
+                     requestedVolume = Number.isFinite(normalizedVolume)
+                       ? Math.min(1, Math.max(0, normalizedVolume))
+                       : 1;
+                     requestedMuted = !!isMuted;
+                     applyAudioState();
+
+                     if (!video.paused && !video.ended) {
+                       setPlaybackStatus();
+                     }
+                   };
 
                    function destroyPlayer() {
                      if (watchdogTimer) {
@@ -353,17 +430,108 @@ public class LivePlayerService : ILivePlayerService, IDisposable
                      player = null;
                    }
 
-                   function markActive() {
-                     lastActiveAt = Date.now();
-                     stuckSince = 0;
-                   }
+                       function readVideoSize() {
+                         const width = Number(video.videoWidth || (lastMediaInfo && lastMediaInfo.width) || 0);
+                         const height = Number(video.videoHeight || (lastMediaInfo && lastMediaInfo.height) || 0);
+    
+                         return {
+                           width: Number.isFinite(width) ? width : 0,
+                           height: Number.isFinite(height) ? height : 0
+                         };
+                       }
+    
+                       function readDecodedFrames() {
+                         if (video.getVideoPlaybackQuality) {
+                           const quality = video.getVideoPlaybackQuality();
+                           const frames = Number(quality && quality.totalVideoFrames);
+    
+                           if (Number.isFinite(frames)) {
+                             canTrackDecodedFrames = true;
+                             return frames;
+                           }
+                         }
+    
+                         const webkitFrames = Number(video.webkitDecodedFrameCount);
+    
+                         if (Number.isFinite(webkitFrames)) {
+                           canTrackDecodedFrames = true;
+                           return webkitFrames;
+                         }
+    
+                         const statisticsFrames = Number(lastStatisticsInfo && lastStatisticsInfo.decodedFrames);
+    
+                         if (Number.isFinite(statisticsFrames)) {
+                           canTrackDecodedFrames = true;
+                           return statisticsFrames;
+                         }
+    
+                         return lastDecodedFrames;
+                       }
+    
+                       function markTimelineActive() {
+                         const now = Date.now();
+                         lastActiveAt = now;
+                         lastTimelineActiveAt = now;
+                       }
+    
+                       function markNetworkActive() {
+                         lastActiveAt = Date.now();
+                       }
+    
+                       function markVideoFrameActive() {
+                         const now = Date.now();
+                         lastActiveAt = now;
+                         lastVideoFrameAt = now;
+                         stuckSince = 0;
+                       }
+    
+                       function updateVideoMetrics() {
+                         const size = readVideoSize();
+                         let hasFreshFrame = false;
+    
+                         if (size.width > 0 && size.height > 0) {
+                           lastVideoSizeText = `${Math.round(size.width)}x${Math.round(size.height)}`;
+    
+                           if (!hasVideoOutput) {
+                             hasVideoOutput = true;
+                             hasFreshFrame = true;
+                           }
+                         }
+    
+                         const decodedFrames = readDecodedFrames();
+    
+                         if (decodedFrames > lastDecodedFrames) {
+                           lastDecodedFrames = decodedFrames;
+                           hasVideoOutput = true;
+                           hasFreshFrame = true;
+                         } else if (decodedFrames < lastDecodedFrames) {
+                           lastDecodedFrames = decodedFrames;
+                         }
+    
+                         if (hasFreshFrame) {
+                           markVideoFrameActive();
+                         }
+    
+                         return hasVideoOutput;
+                       }
+    
+                       function resetVideoDiagnostics() {
+                         const now = Date.now();
+                         lastActiveAt = now;
+                         lastTimelineActiveAt = now;
+                         lastVideoFrameAt = now;
+                         lastCurrentTime = video.currentTime || 0;
+                         lastDecodedFrames = 0;
+                         lastVideoSizeText = "";
+                         lastMediaInfo = null;
+                         lastStatisticsInfo = null;
+                         hasVideoOutput = false;
+                         canTrackDecodedFrames = false;
+                         stuckSince = 0;
+                       }
 
-                   function markNetworkActive() {
-                     lastActiveAt = Date.now();
-                   }
-
-                   function seekToLiveEdge() {
-                     const buffered = video.buffered;
+                       function seekToLiveEdge(reason) {
+                         const buffered = video.buffered;
 
                      if (!buffered || buffered.length <= 0) {
                        return false;
@@ -377,9 +545,9 @@ public class LivePlayerService : ILivePlayerService, IDisposable
                      }
 
                      video.currentTime = target;
-                     setStatus("直播卡住，正在跳到最新缓冲...");
-                     return true;
-                   }
+                         setStatus(`${reason}，正在跳到最新缓冲...`);
+                         return true;
+                       }
 
                    function recoverFromStuck(reason) {
                      if (isRecovering) {
@@ -396,12 +564,15 @@ public class LivePlayerService : ILivePlayerService, IDisposable
 
                      recoveryCount++;
 
-                     if (seekToLiveEdge()) {
-                       lastActiveAt = Date.now();
-                       lastCurrentTime = video.currentTime || 0;
-                       stuckSince = 0;
-                       isRecovering = false;
-                       return;
+                         if (seekToLiveEdge(reason)) {
+                           lastActiveAt = Date.now();
+                           lastTimelineActiveAt = lastActiveAt;
+                           lastVideoFrameAt = lastActiveAt;
+                           lastCurrentTime = video.currentTime || 0;
+                           lastDecodedFrames = readDecodedFrames();
+                           stuckSince = 0;
+                           isRecovering = false;
+                           return;
                      }
 
                      retryCount++;
@@ -417,26 +588,42 @@ public class LivePlayerService : ILivePlayerService, IDisposable
                        clearInterval(watchdogTimer);
                      }
 
-                     lastActiveAt = Date.now();
-                     lastCurrentTime = video.currentTime || 0;
-                     stuckSince = 0;
-                     watchdogTimer = setInterval(() => {
-                       const now = Date.now();
-                       const currentTime = video.currentTime || 0;
-                       const isTimeMoving = Math.abs(currentTime - lastCurrentTime) > 0.05;
-                       lastCurrentTime = currentTime;
-
-                       if (isTimeMoving) {
-                         markActive();
-                         return;
-                       }
-
-                       if (video.paused || video.ended) {
-                         return;
-                       }
-
-                       if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA &&
-                           now - lastActiveAt > waitingTimeoutMs) {
+                         watchdogTimer = setInterval(() => {
+                           const now = Date.now();
+                           const currentTime = video.currentTime || 0;
+                           const isTimeMoving = Math.abs(currentTime - lastCurrentTime) > 0.05;
+                           lastCurrentTime = currentTime;
+                           updateVideoMetrics();
+    
+                           if (isTimeMoving) {
+                             markTimelineActive();
+                           }
+    
+                           if (video.paused || video.ended) {
+                             return;
+                           }
+    
+                           if (!hasVideoOutput &&
+                               currentTime > 0 &&
+                               now - lastVideoFrameAt > noVideoTimeoutMs) {
+                             recoverFromStuck("直播画面未输出");
+                             return;
+                           }
+    
+                           if (hasVideoOutput &&
+                               canTrackDecodedFrames &&
+                               now - lastVideoFrameAt > videoFrameTimeoutMs &&
+                               now - lastTimelineActiveAt < waitingTimeoutMs) {
+                             recoverFromStuck("直播画面卡住");
+                             return;
+                           }
+    
+                           if (isTimeMoving) {
+                             return;
+                           }
+    
+                           if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA &&
+                               now - lastActiveAt > waitingTimeoutMs) {
                          recoverFromStuck("直播缓冲超时");
                          return;
                        }
@@ -460,11 +647,13 @@ public class LivePlayerService : ILivePlayerService, IDisposable
                      if (!window.mpegts || !mpegts.isSupported()) {
                        setStatus("当前 WebView 不支持 MSE 直播播放");
                        return;
-                     }
-
-                     destroyPlayer();
-                     startWatchdog();
-                     setStatus(retryCount > 0 ? `正在重新连接直播流（${retryCount}/${maxRetries}）...` : "正在连接直播流...");
+                         }
+    
+                         destroyPlayer();
+                         resetVideoDiagnostics();
+                         applyAudioState();
+                         startWatchdog();
+                         setStatus(retryCount > 0 ? `正在重新连接直播流（${retryCount}/${maxRetries}）...` : "正在连接直播流...");
                      const streamUrl = new URL(`/stream/${encodeURIComponent(token)}?v=${Date.now()}`, location.href).toString();
                      player = mpegts.createPlayer({
                        type: "flv",
@@ -504,27 +693,52 @@ public class LivePlayerService : ILivePlayerService, IDisposable
                        recoveryTimer = setTimeout(() => {
                          recoveryTimer = null;
                          createPlayer();
-                       }, 1500);
-                     });
-                     video.onplaying = () => {
-                       retryCount = 0;
-                       isRecovering = false;
-                       markActive();
-                       setStatus(recoveryCount > 0 ? "直播已恢复" : "播放中");
-                     };
-                     video.ontimeupdate = () => markActive();
-                     video.onprogress = () => markNetworkActive();
-                     video.onwaiting = () => setStatus("缓冲中，正在监测直播状态...");
+                           }, 1500);
+                         });
+                         player.on(mpegts.Events.MEDIA_INFO, mediaInfo => {
+                           lastMediaInfo = mediaInfo || {};
+                           updateVideoMetrics();
+                           console.info("直播媒体信息", {
+                             hasVideo: lastMediaInfo.hasVideo,
+                             videoCodec: lastMediaInfo.videoCodec,
+                             width: lastMediaInfo.width,
+                             height: lastMediaInfo.height,
+                             fps: lastMediaInfo.fps
+                           });
+                         });
+                         player.on(mpegts.Events.STATISTICS_INFO, statisticsInfo => {
+                           lastStatisticsInfo = statisticsInfo || {};
+                           updateVideoMetrics();
+                         });
+                         video.onplaying = () => {
+                           retryCount = 0;
+                           isRecovering = false;
+                           markTimelineActive();
+                           updateVideoMetrics();
+                           setPlaybackStatus();
+                         };
+                         video.onloadedmetadata = () => updateVideoMetrics();
+                         video.onresize = () => updateVideoMetrics();
+                         video.oncanplay = () => updateVideoMetrics();
+                         video.ontimeupdate = () => {
+                           markTimelineActive();
+                           updateVideoMetrics();
+                         };
+                         video.onprogress = () => markNetworkActive();
+                         video.onwaiting = () => setStatus("缓冲中，正在监测直播状态...");
                      video.onstalled = () => recoverFromStuck("直播流停止响应");
                      video.onerror = () => {
                        const error = video.error;
                        setStatus(error ? `播放器错误：${error.code}` : "播放器错误");
                      };
-                     video.play().catch((error) => setStatus(`点击播放器开始播放：${error && error.message ? error.message : ""}`));
+                     playVideo();
                    }
 
                    window.addEventListener("beforeunload", destroyPlayer);
-                   video.addEventListener("click", playVideoByUserGesture);
+                   root.addEventListener("click", unlockSoundByUserGesture);
+                   root.addEventListener("pointerdown", unlockSoundByUserGesture);
+                   root.addEventListener("touchstart", unlockSoundByUserGesture, { passive: true });
+                   document.addEventListener("keydown", unlockSoundByUserGesture);
                    createPlayer();
                  </script>
                </body>

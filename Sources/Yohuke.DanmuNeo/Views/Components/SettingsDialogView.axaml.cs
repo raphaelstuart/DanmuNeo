@@ -3,14 +3,14 @@ using Avalonia.Controls;
 namespace Yohuke.DanmuNeo.Views.Components;
 
 /// <summary>
-/// 设置遮罩层。
+/// 设置对话框。
 /// </summary>
-public partial class SettingsOverlayView : UserControl
+public partial class SettingsDialogView : UserControl
 {
     /// <summary>
-    /// 初始化设置遮罩层。
+    /// 初始化设置对话框。
     /// </summary>
-    public SettingsOverlayView()
+    public SettingsDialogView()
     {
         InitializeComponent();
     }

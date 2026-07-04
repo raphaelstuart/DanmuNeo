@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -20,8 +21,11 @@ namespace Yohuke.DanmuNeo.Views.Components;
 public partial class LiveRoomWorkspaceView : UserControl
 {
     private LiveRoomTabViewModel? currentRoom;
-    private MainWindowViewModel? mainWindowViewModel;
     private NativeWebView? liveWebView;
+    private DispatcherTimer? lyricSeekRepeatTimer;
+    private Key? lyricSeekRepeatKey;
+    private double lyricSeekRepeatOffsetSeconds;
+    private bool isLyricSeekRepeating;
 
     /// <summary>
     /// 初始化直播间工作页面。
@@ -31,13 +35,14 @@ public partial class LiveRoomWorkspaceView : UserControl
         InitializeComponent();
         DataContextChanged += LiveRoomWorkspaceView_OnDataContextChanged;
         AttachedToVisualTree += LiveRoomWorkspaceView_OnAttachedToVisualTree;
+        AddHandler(KeyDownEvent, LiveRoomWorkspaceView_OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(KeyUpEvent, LiveRoomWorkspaceView_OnPreviewKeyUp, RoutingStrategies.Tunnel);
     }
 
     /// <inheritdoc/>
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         currentRoom?.StopLivePlayer();
-        DetachMainWindowViewModel();
         DetachDanmuItems();
         base.OnDetachedFromVisualTree(e);
     }
@@ -101,35 +106,7 @@ public partial class LiveRoomWorkspaceView : UserControl
 
     private void LiveRoomWorkspaceView_OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
-        AttachMainWindowViewModel();
         ApplySavedWorkspaceColumnWidths();
-    }
-
-    private void AttachMainWindowViewModel()
-    {
-        var viewModel = GetMainWindowViewModel();
-
-        if (mainWindowViewModel == viewModel)
-        {
-            return;
-        }
-
-        DetachMainWindowViewModel();
-        mainWindowViewModel = viewModel;
-
-        if (mainWindowViewModel is not null)
-        {
-            mainWindowViewModel.PropertyChanged += MainWindowViewModel_OnPropertyChanged;
-        }
-    }
-
-    private void DetachMainWindowViewModel()
-    {
-        if (mainWindowViewModel is not null)
-        {
-            mainWindowViewModel.PropertyChanged -= MainWindowViewModel_OnPropertyChanged;
-            mainWindowViewModel = null;
-        }
     }
 
     private void AttachDanmuItems(LiveRoomTabViewModel? room)
@@ -167,22 +144,117 @@ public partial class LiveRoomWorkspaceView : UserControl
             nameof(LiveRoomTabViewModel.IsLivePlayerVisible))
         {
             Dispatcher.UIThread.Post(UpdateLivePlayerHost, DispatcherPriority.Background);
+            return;
+        }
+
+        if (e.PropertyName is nameof(LiveRoomTabViewModel.LivePlayerVolumePercent) or
+            nameof(LiveRoomTabViewModel.IsLivePlayerMuted))
+        {
+            Dispatcher.UIThread.Post(SyncLivePlayerAudio, DispatcherPriority.Background);
+            return;
+        }
+
+        if (e.PropertyName == nameof(LiveRoomTabViewModel.ActiveLyricLine))
+        {
+            Dispatcher.UIThread.Post(ScrollActiveLyricIntoView, DispatcherPriority.Background);
         }
     }
 
-    private void MainWindowViewModel_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void LiveRoomWorkspaceView_OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.PropertyName is nameof(MainWindowViewModel.IsSettingsOpen) or
-            nameof(MainWindowViewModel.IsConfirmDeleteDialogOpen))
+        if (!CanHandleLyricSeekKey(e))
         {
-            Dispatcher.UIThread.Post(UpdateLivePlayerHost, DispatcherPriority.Background);
+            return;
         }
+
+        e.Handled = true;
+        var offsetSeconds = e.Key == Key.Left ? -0.5 : 0.5;
+
+        if (lyricSeekRepeatTimer?.IsEnabled == true && lyricSeekRepeatKey == e.Key)
+        {
+            return;
+        }
+
+        currentRoom?.AdjustLyricPlaybackPosition(offsetSeconds);
+        StartLyricSeekRepeat(e.Key, offsetSeconds);
+    }
+
+    private void LiveRoomWorkspaceView_OnPreviewKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (lyricSeekRepeatKey == e.Key)
+        {
+            StopLyricSeekRepeat();
+        }
+    }
+
+    private bool CanHandleLyricSeekKey(KeyEventArgs e)
+    {
+        if (currentRoom is null ||
+            e.Key is not (Key.Left or Key.Right) ||
+            !e.KeyModifiers.HasFlag(KeyModifiers.Alt) ||
+            IsTextInputEvent(e))
+        {
+            return false;
+        }
+
+        return currentRoom.Lyrics.Count > 0;
+    }
+
+    private static bool IsTextInputEvent(KeyEventArgs e)
+    {
+        if (e.Source is TextBox)
+        {
+            return true;
+        }
+
+        return e.Source is Control control && control.FindAncestorOfType<TextBox>() is not null;
+    }
+
+    private void StartLyricSeekRepeat(Key key, double offsetSeconds)
+    {
+        lyricSeekRepeatKey = key;
+        lyricSeekRepeatOffsetSeconds = offsetSeconds;
+        isLyricSeekRepeating = false;
+        lyricSeekRepeatTimer ??= new();
+        lyricSeekRepeatTimer.Stop();
+        lyricSeekRepeatTimer.Interval = TimeSpan.FromSeconds(1);
+        lyricSeekRepeatTimer.Tick -= LyricSeekRepeatTimer_OnTick;
+        lyricSeekRepeatTimer.Tick += LyricSeekRepeatTimer_OnTick;
+        lyricSeekRepeatTimer.Start();
+    }
+
+    private void StopLyricSeekRepeat()
+    {
+        lyricSeekRepeatTimer?.Stop();
+        lyricSeekRepeatKey = null;
+        lyricSeekRepeatOffsetSeconds = 0;
+        isLyricSeekRepeating = false;
+    }
+
+    private void LyricSeekRepeatTimer_OnTick(object? sender, EventArgs e)
+    {
+        if (!isLyricSeekRepeating)
+        {
+            isLyricSeekRepeating = true;
+            lyricSeekRepeatTimer!.Interval = TimeSpan.FromMilliseconds(250);
+        }
+
+        currentRoom?.AdjustLyricPlaybackPosition(lyricSeekRepeatOffsetSeconds);
+    }
+
+    private void ScrollActiveLyricIntoView()
+    {
+        if (currentRoom?.ActiveLyricLine is null)
+        {
+            return;
+        }
+
+        LyricListBox.ScrollIntoView(currentRoom.ActiveLyricLine);
     }
 
     private void UpdateLivePlayerHost()
     {
         if (currentRoom is null ||
-            IsBlockingNativeWebView() ||
             !currentRoom.IsLivePlayerVisible ||
             string.IsNullOrWhiteSpace(currentRoom.LivePlayerUrl) ||
             !Uri.TryCreate(currentRoom.LivePlayerUrl, UriKind.Absolute, out var uri))
@@ -195,16 +267,12 @@ public partial class LiveRoomWorkspaceView : UserControl
         {
             liveWebView = new();
             liveWebView.EnvironmentRequested += LiveWebView_OnEnvironmentRequested;
+            liveWebView.NavigationCompleted += LiveWebView_OnNavigationCompleted;
             LivePlayerHost.Child = liveWebView;
         }
 
         liveWebView.Source = uri;
-    }
-
-    private bool IsBlockingNativeWebView()
-    {
-        AttachMainWindowViewModel();
-        return mainWindowViewModel is { IsSettingsOpen: true } or { IsConfirmDeleteDialogOpen: true };
+        SyncLivePlayerAudio();
     }
 
     private void ClearLivePlayerHost()
@@ -213,6 +281,7 @@ public partial class LiveRoomWorkspaceView : UserControl
         {
             liveWebView.Source = new("about:blank");
             liveWebView.EnvironmentRequested -= LiveWebView_OnEnvironmentRequested;
+            liveWebView.NavigationCompleted -= LiveWebView_OnNavigationCompleted;
             liveWebView = null;
         }
 
@@ -226,6 +295,32 @@ public partial class LiveRoomWorkspaceView : UserControl
         if (e is AppleWKWebViewEnvironmentRequestedEventArgs apple)
         {
             apple.NonPersistentDataStore = true;
+        }
+    }
+
+    private void LiveWebView_OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+    {
+        SyncLivePlayerAudio();
+    }
+
+    private void SyncLivePlayerAudio()
+    {
+        if (currentRoom is null || liveWebView is null)
+        {
+            return;
+        }
+
+        var volume = Math.Clamp(currentRoom.LivePlayerVolumePercent / 100, 0, 1)
+            .ToString("0.###", CultureInfo.InvariantCulture);
+        var muted = currentRoom.IsLivePlayerMuted ? "true" : "false";
+
+        try
+        {
+            liveWebView.InvokeScript(
+                $"window.yohukeSetLivePlayerAudio && window.yohukeSetLivePlayerAudio({volume}, {muted});");
+        }
+        catch
+        {
         }
     }
 

@@ -45,11 +45,7 @@
             <Grid Grid.Column="2"
                   Margin="16,10,16,16">
                 <components:WorkspaceTabsView />
-                <components:AddWorkspaceDialogView />
             </Grid>
         </Grid>
-
-        <components:SettingsOverlayView Grid.Row="1" />
-        <components:ConfirmDeleteDialogView Grid.Row="1" />
     </Grid>
 </Window>

@@ -125,6 +125,57 @@ public class LiveRoomTabViewModelTests
     }
 
     [Fact]
+    public void LivePlayerVolumeClampsToSupportedRange()
+    {
+        var state = new LiveRoomTabState
+        {
+            LivePlayerVolumePercent = 150
+        };
+        var viewModel = new LiveRoomTabViewModel(state);
+
+        Assert.Equal(100, viewModel.LivePlayerVolumePercent);
+        Assert.Equal(100, state.LivePlayerVolumePercent);
+
+        viewModel.LivePlayerVolumePercent = -10;
+
+        Assert.Equal(0, viewModel.LivePlayerVolumePercent);
+        Assert.Equal(0, state.LivePlayerVolumePercent);
+
+        viewModel.LivePlayerVolumePercent = double.NaN;
+
+        Assert.Equal(100, viewModel.LivePlayerVolumePercent);
+        Assert.Equal(100, state.LivePlayerVolumePercent);
+    }
+
+    [Fact]
+    public void ToggleLivePlayerMutedWritesState()
+    {
+        var state = new LiveRoomTabState();
+        var viewModel = new LiveRoomTabViewModel(state);
+
+        viewModel.ToggleLivePlayerMuted();
+
+        Assert.True(viewModel.IsLivePlayerMuted);
+        Assert.True(state.IsLivePlayerMuted);
+        Assert.False(viewModel.IsLivePlayerAudible);
+    }
+
+    [Fact]
+    public async Task ToggleLivePlayerStopsWhenVisible()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            IsLivePlayerVisible = true,
+            LivePlayerUrl = "http://127.0.0.1/player"
+        };
+
+        await viewModel.ToggleLivePlayerAsync();
+
+        Assert.False(viewModel.IsLivePlayerVisible);
+        Assert.Equal("", viewModel.LivePlayerUrl);
+    }
+
+    [Fact]
     public void CalculateLyricPlaybackWaitScalesDelayByRate()
     {
         var wait = LiveRoomTabViewModel.CalculateLyricPlaybackWait(
@@ -133,6 +184,146 @@ public class LiveRoomTabViewModelTests
             2.0);
 
         Assert.Equal(TimeSpan.FromSeconds(4), wait);
+    }
+
+    [Fact]
+    public void ApplyLyricCalculatesDurationsAndResetsSentState()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            LyricInput = """
+                         [00:01.00]第一句
+                         [00:03.00]第二句
+                         """
+        };
+
+        viewModel.ApplyLyric();
+        viewModel.Lyrics[0].IsSent = true;
+        viewModel.ApplyLyric();
+
+        Assert.Equal(2, viewModel.Lyrics.Count);
+        Assert.Equal(2, viewModel.Lyrics[0].DurationSeconds);
+        Assert.Equal(3, viewModel.Lyrics[1].DurationSeconds);
+        Assert.False(viewModel.Lyrics[0].IsSent);
+        Assert.Equal(viewModel.Lyrics[0], viewModel.ActiveLyricLine);
+    }
+
+    [Fact]
+    public void ClearLyricClearsInputTitleLinesAndPlaybackState()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            LyricTitle = "歌曲",
+            LyricInput = "[00:01.00]歌词"
+        };
+        viewModel.ApplyLyric();
+        viewModel.AdjustLyricPlaybackPosition(0.5);
+
+        viewModel.ClearLyric();
+
+        Assert.Equal("", viewModel.LyricTitle);
+        Assert.Equal("", viewModel.LyricInput);
+        Assert.Empty(viewModel.Lyrics);
+        Assert.Null(viewModel.ActiveLyricLine);
+        Assert.Equal(0, viewModel.LyricPlaybackPositionSeconds);
+    }
+
+    [Fact]
+    public void RewindAndFastForwardLyricAdjustByHalfSecond()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState())
+        {
+            LyricInput = """
+                         [00:01.00]第一句
+                         [00:03.00]第二句
+                         """
+        };
+        viewModel.ApplyLyric();
+
+        viewModel.FastForwardLyric();
+        viewModel.FastForwardLyric();
+        viewModel.FastForwardLyric();
+
+        Assert.Equal(2.5, viewModel.LyricPlaybackPositionSeconds);
+        Assert.Equal(viewModel.Lyrics[0], viewModel.ActiveLyricLine);
+        Assert.Equal(0.75, viewModel.Lyrics[0].Progress);
+
+        viewModel.FastForwardLyric();
+
+        Assert.Equal(3, viewModel.LyricPlaybackPositionSeconds);
+        Assert.Equal(viewModel.Lyrics[1], viewModel.ActiveLyricLine);
+
+        viewModel.RewindLyric();
+
+        Assert.Equal(2.5, viewModel.LyricPlaybackPositionSeconds);
+        Assert.Equal(viewModel.Lyrics[0], viewModel.ActiveLyricLine);
+    }
+
+    [Fact]
+    public async Task SendCurrentLyricMarksLineSent()
+    {
+        var sendService = new FakeDanmuSendService();
+        var viewModel = CreateConfiguredViewModel(new AppSettings(), sendService);
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:01.00]歌词";
+        viewModel.ApplyLyric();
+
+        await viewModel.SendCurrentLyricAsync();
+
+        Assert.True(viewModel.Lyrics[0].IsSent);
+        Assert.Equal(["【♪歌词】"], sendService.SentMessages);
+    }
+
+    [Fact]
+    public async Task AutoLyricSkipsAlreadySentLineByDefault()
+    {
+        var sendService = new FakeDanmuSendService();
+        var viewModel = CreateConfiguredViewModel(new AppSettings(), sendService);
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:01.00]歌词";
+        viewModel.ApplyLyric();
+        viewModel.Lyrics[0].IsSent = true;
+
+        var autoTask = viewModel.ToggleAutoLyricAsync();
+        await Task.Delay(100);
+        viewModel.StopAutoLyric();
+        await autoTask;
+
+        Assert.Empty(sendService.SentMessages);
+    }
+
+    [Fact]
+    public async Task AutoLyricCanRepeatAlreadySentLineWhenEnabled()
+    {
+        var sendService = new FakeDanmuSendService();
+        var state = new LiveRoomTabState
+        {
+            PreventRepeatedLyricSend = false,
+            LyricText = "[00:01.00]歌词"
+        };
+        var viewModel = new LiveRoomTabViewModel(state);
+        viewModel.Configure(
+            _ => null,
+            (_, _) => null,
+            () => new AppSettings(),
+            () => new MarkSymbolGroup(),
+            () => [],
+            _ => [],
+            sendService,
+            new AvatarCacheService(
+                new AppDirectoryService(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")))),
+            () => Task.CompletedTask);
+        viewModel.RoomId = "100";
+        viewModel.ApplyLyric();
+        viewModel.Lyrics[0].IsSent = true;
+
+        var autoTask = viewModel.ToggleAutoLyricAsync();
+        await Task.Delay(100);
+        viewModel.StopAutoLyric();
+        await autoTask;
+
+        Assert.Equal(["【♪歌词】"], sendService.SentMessages);
+        Assert.False(state.PreventRepeatedLyricSend);
     }
 
     [Fact]
@@ -274,7 +465,10 @@ public class LiveRoomTabViewModelTests
     {
         var liveStreamService = new FakeBilibiliLiveStreamService();
         var livePlayerService = new FakeLivePlayerService();
-        var viewModel = CreateConfiguredViewModel(new AppSettings(), liveStreamService, livePlayerService);
+        var viewModel = CreateConfiguredViewModel(
+            new AppSettings(),
+            liveStreamService: liveStreamService,
+            livePlayerService: livePlayerService);
 
         await viewModel.PlayLiveAsync();
         var firstUrl = viewModel.LivePlayerUrl;
@@ -288,6 +482,7 @@ public class LiveRoomTabViewModelTests
 
     private static LiveRoomTabViewModel CreateConfiguredViewModel(
         AppSettings settings,
+        IDanmuSendService? sendService = null,
         IBilibiliLiveStreamService? liveStreamService = null,
         ILivePlayerService? livePlayerService = null)
     {
@@ -299,7 +494,7 @@ public class LiveRoomTabViewModelTests
             () => MarkSymbolService.CreateDefaultGroup(settings),
             () => [],
             _ => [],
-            new DanmuSendService(),
+            sendService ?? new DanmuSendService(),
             new AvatarCacheService(
                 new AppDirectoryService(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")))),
             () => Task.CompletedTask,

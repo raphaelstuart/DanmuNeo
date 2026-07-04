@@ -10,6 +10,8 @@ namespace Yohuke.DanmuNeo.Views;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private readonly AttachedDialogCoordinator dialogCoordinator;
+
     /// <summary>
     /// 初始化主窗口。
     /// </summary>
@@ -18,6 +20,7 @@ public partial class MainWindow : Window
         StartupLog.Append("MainWindow ctor begin");
         InitializeComponent();
         StartupLog.Append("MainWindow InitializeComponent end");
+        dialogCoordinator = new(this, MainColumns);
         DataContextChanged += OnDataContextChanged;
         Closing += async (_, _) =>
         {
@@ -30,6 +33,8 @@ public partial class MainWindow : Window
         };
         Closed += (_, _) =>
         {
+            dialogCoordinator.Dispose();
+
             if (DataContext is IDisposable disposable)
             {
                 disposable.Dispose();
@@ -39,6 +44,8 @@ public partial class MainWindow : Window
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        dialogCoordinator.Attach(DataContext as MainWindowViewModel);
+
         if (DataContext is MainWindowViewModel viewModel)
         {
             Width = AppStateService.ClampWindowWidth(viewModel.Settings.WindowWidth);

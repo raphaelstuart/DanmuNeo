@@ -61,6 +61,21 @@ public class LiveRoomTabState
     public double LyricPlaybackRate { get; set; } = 1.0;
 
     /// <summary>
+    /// 歌词退回重播时是否避免重复发送。
+    /// </summary>
+    public bool PreventRepeatedLyricSend { get; set; } = true;
+
+    /// <summary>
+    /// 直播播放器音量百分比。
+    /// </summary>
+    public double LivePlayerVolumePercent { get; set; } = 100;
+
+    /// <summary>
+    /// 直播播放器是否静音。
+    /// </summary>
+    public bool IsLivePlayerMuted { get; set; }
+
+    /// <summary>
     /// 弹幕转发规则。
     /// </summary>
     public List<DanmuForwardRuleState> ForwardRules { get; set; } = [];

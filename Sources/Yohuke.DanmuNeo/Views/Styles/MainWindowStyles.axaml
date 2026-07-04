@@ -453,7 +453,7 @@
     </Style>
 
     <Style Selector="Button.settingsSectionButton">
-        <Setter Property="MinWidth" Value="160" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
@@ -568,11 +568,30 @@
     <Style Selector="Border.settingsPanel">
         <Setter Property="Background" Value="{DynamicResource AppCardBrush}" />
         <Setter Property="CornerRadius" Value="10" />
-        <Setter Property="Padding" Value="20" />
+        <Setter Property="ClipToBounds" Value="True" />
     </Style>
 
     <Style Selector="Border.settingsOverlay">
         <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+    </Style>
+
+    <Style Selector="Border.settingsDialogHeader">
+        <Setter Property="Background" Value="{DynamicResource AppCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="18,14" />
+    </Style>
+
+    <Style Selector="Border.settingsDialogSidebar">
+        <Setter Property="Background" Value="{DynamicResource AppSidebarBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,1,0" />
+        <Setter Property="Padding" Value="12" />
+    </Style>
+
+    <Style Selector="Border.settingsDialogContent">
+        <Setter Property="Background" Value="{DynamicResource AppCardBrush}" />
+        <Setter Property="Padding" Value="18" />
     </Style>
 
     <Style Selector="TextBlock">
@@ -692,6 +711,33 @@
 
     <Style Selector="ListBox.lyricLineList ListBoxItem:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppSidebarHoverBrush}" />
+    </Style>
+
+    <Style Selector="Border.lyricLine">
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Border.lyricLine.active">
+        <Setter Property="Background" Value="{DynamicResource AppSidebarSelectedBrush}" />
+    </Style>
+
+    <Style Selector="Border.lyricLine.sent">
+        <Setter Property="Opacity" Value="0.72" />
+    </Style>
+
+    <Style Selector="Border.lyricLine.active.sent">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+
+    <Style Selector="ProgressBar.lyricLineProgress">
+        <Setter Property="Height" Value="30" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Opacity" Value="0.28" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource AppPrimaryBrush}" />
     </Style>
 
     <Style Selector="Border.forwardRuleCard">

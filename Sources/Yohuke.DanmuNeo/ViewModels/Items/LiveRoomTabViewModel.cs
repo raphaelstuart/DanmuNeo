@@ -20,6 +20,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private const double MIN_LYRIC_PLAYBACK_RATE = 0.25;
     private const double MAX_LYRIC_PLAYBACK_RATE = 3.0;
     private const double DEFAULT_LYRIC_PLAYBACK_RATE = 1.0;
+    private const double LYRIC_SEEK_STEP_SECONDS = 0.5;
+    private const double DEFAULT_LAST_LYRIC_DURATION_SECONDS = 3.0;
+    private const int LYRIC_PLAYBACK_TICK_MS = 50;
+    private const double MIN_LIVE_PLAYER_VOLUME_PERCENT = 0;
+    private const double MAX_LIVE_PLAYER_VOLUME_PERCENT = 100;
 
     private CancellationTokenSource? listenTokenSource;
     private CancellationTokenSource? lyricTokenSource;
@@ -31,13 +36,16 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private Func<IEnumerable<MarkSymbolGroup>>? getSymbolGroups;
     private Func<LiveRoomTabViewModel, IEnumerable<ForwardSourceRoomOption>>? getForwardSourceRooms;
     private Func<Task>? saveState;
-    private DanmuSendService? sendService;
+    private IDanmuSendService? sendService;
     private AvatarCacheService? avatarCacheService;
     private IBilibiliLiveStreamService? liveStreamService;
     private ILivePlayerService? livePlayerService;
     private Bitmap? avatarImage;
     private string? livePlayerToken;
     private bool suppressLiveQualityChange;
+    private DateTimeOffset lyricPlaybackStartedAt;
+    private double lyricPlaybackStartPositionSeconds;
+    private int lastAutoEnteredLyricIndex = -1;
     private readonly DanmuForwardService forwardService = new();
     private readonly LyricTimelineService lyricTimelineService = new();
 
@@ -52,6 +60,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         lyricTitle = state.LyricTitle;
         lyricPlaybackRate = NormalizeLyricPlaybackRate(state.LyricPlaybackRate);
         state.LyricPlaybackRate = lyricPlaybackRate;
+        preventRepeatedLyricSend = state.PreventRepeatedLyricSend;
+        livePlayerVolumePercent = NormalizeLivePlayerVolumePercent(state.LivePlayerVolumePercent);
+        state.LivePlayerVolumePercent = livePlayerVolumePercent;
+        isLivePlayerMuted = state.IsLivePlayerMuted;
         avatarPath = state.AvatarPath;
         RefreshAvatarImage();
         ForwardRules =
@@ -191,6 +203,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     [ObservableProperty] private double lyricPlaybackRate = DEFAULT_LYRIC_PLAYBACK_RATE;
 
+    [ObservableProperty] private bool preventRepeatedLyricSend = true;
+
     [ObservableProperty] private string connectionStatus = "未连接";
 
     [ObservableProperty] private bool isListening;
@@ -202,6 +216,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     [ObservableProperty] private bool isLivePlayerVisible;
 
     [ObservableProperty] private string livePlayerUrl = "";
+
+    [ObservableProperty] private double livePlayerVolumePercent;
+
+    [ObservableProperty] private bool isLivePlayerMuted;
 
     [ObservableProperty] private LiveQualityOption? selectedLiveQuality;
 
@@ -229,6 +247,21 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// 是否隐藏直播播放器。
     /// </summary>
     public bool IsLivePlayerHidden => !IsLivePlayerVisible;
+
+    /// <summary>
+    /// 直播播放器播放按钮提示。
+    /// </summary>
+    public string LivePlayerToggleToolTip => IsLivePlayerVisible ? "停止播放" : "播放直播";
+
+    /// <summary>
+    /// 直播播放器是否未静音。
+    /// </summary>
+    public bool IsLivePlayerAudible => !IsLivePlayerMuted;
+
+    /// <summary>
+    /// 直播播放器音量文本。
+    /// </summary>
+    public string LivePlayerVolumeText => $"{Math.Round(LivePlayerVolumePercent)}%";
 
     /// <summary>
     /// 主播头像位图。
@@ -262,6 +295,27 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     partial void OnIsLivePlayerVisibleChanged(bool value)
     {
         OnPropertyChanged(nameof(IsLivePlayerHidden));
+        OnPropertyChanged(nameof(LivePlayerToggleToolTip));
+    }
+
+    partial void OnLivePlayerVolumePercentChanged(double value)
+    {
+        var normalizedValue = NormalizeLivePlayerVolumePercent(value);
+
+        if (ShouldNormalizeLivePlayerVolumePercent(value, normalizedValue))
+        {
+            LivePlayerVolumePercent = normalizedValue;
+            return;
+        }
+
+        State.LivePlayerVolumePercent = normalizedValue;
+        OnPropertyChanged(nameof(LivePlayerVolumeText));
+    }
+
+    partial void OnIsLivePlayerMutedChanged(bool value)
+    {
+        State.IsLivePlayerMuted = value;
+        OnPropertyChanged(nameof(IsLivePlayerAudible));
     }
 
     partial void OnSelectedLiveQualityChanged(LiveQualityOption? value)
@@ -277,6 +331,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     [ObservableProperty] private bool isSelected;
 
     [ObservableProperty] private int activeLyricIndex;
+
+    [ObservableProperty] private LyricLineState? activeLyricLine;
+
+    [ObservableProperty] private double lyricPlaybackPositionSeconds;
 
     partial void OnInputDraftChanged(string value)
     {
@@ -316,6 +374,17 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
 
         State.LyricPlaybackRate = normalizedValue;
+        ResetLyricPlaybackClock(LyricPlaybackPositionSeconds);
+    }
+
+    partial void OnPreventRepeatedLyricSendChanged(bool value)
+    {
+        State.PreventRepeatedLyricSend = value;
+    }
+
+    partial void OnActiveLyricIndexChanged(int value)
+    {
+        RefreshActiveLyric();
     }
 
     partial void OnAvatarPathChanged(string value)
@@ -336,7 +405,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         Func<MarkSymbolGroup> getMarkSymbolGroup,
         Func<IEnumerable<MarkSymbolGroup>> getSymbolGroups,
         Func<LiveRoomTabViewModel, IEnumerable<ForwardSourceRoomOption>> getForwardSourceRooms,
-        DanmuSendService sendService,
+        IDanmuSendService sendService,
         AvatarCacheService avatarCacheService,
         Func<Task> saveState,
         IBilibiliLiveStreamService? liveStreamService = null,
@@ -480,6 +549,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     [RelayCommand]
     public void ApplyLyric()
     {
+        StopAutoLyric(false);
         Lyrics.Clear();
 
         foreach (var line in lyricTimelineService.Parse(LyricInput))
@@ -487,8 +557,21 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             Lyrics.Add(line);
         }
 
-        ActiveLyricIndex = 0;
-        RefreshActiveLyric();
+        RefreshLyricDurations();
+        ResetLyricSession();
+    }
+
+    /// <summary>
+    /// 清空当前歌词。
+    /// </summary>
+    [RelayCommand]
+    public void ClearLyric()
+    {
+        StopAutoLyric(false);
+        LyricTitle = "";
+        LyricInput = "";
+        Lyrics.Clear();
+        ResetLyricSession();
     }
 
     /// <summary>
@@ -527,21 +610,40 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             return;
         }
 
-        var settings = getSettings?.Invoke();
-        var account = resolveAccount?.Invoke(this);
+        var line = Lyrics[Math.Clamp(ActiveLyricIndex, 0, Lyrics.Count - 1)];
+        await SendLyricLineAsync(line, true);
+        SetLyricPlaybackPosition(GetNextLyricPosition(line));
+    }
 
-        if (settings is null || sendService is null)
+    /// <summary>
+    /// 快退歌词播放位置。
+    /// </summary>
+    [RelayCommand]
+    public void RewindLyric()
+    {
+        AdjustLyricPlaybackPosition(-LYRIC_SEEK_STEP_SECONDS);
+    }
+
+    /// <summary>
+    /// 快进歌词播放位置。
+    /// </summary>
+    [RelayCommand]
+    public void FastForwardLyric()
+    {
+        AdjustLyricPlaybackPosition(LYRIC_SEEK_STEP_SECONDS);
+    }
+
+    /// <summary>
+    /// 调整歌词播放位置。
+    /// </summary>
+    public void AdjustLyricPlaybackPosition(double offsetSeconds)
+    {
+        if (!LyricTimelineService.HasTimeline(Lyrics))
         {
             return;
         }
 
-        var line = Lyrics[Math.Clamp((int)ActiveLyricIndex, 0, Lyrics.Count - 1)];
-        var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
-        var message =
-            LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, line.Content);
-        await SendMessageAsync(message, account, settings);
-        ActiveLyricIndex = Math.Min(ActiveLyricIndex + 1, Math.Max(0, Lyrics.Count - 1));
-        RefreshActiveLyric();
+        SetLyricPlaybackPosition(LyricPlaybackPositionSeconds + offsetSeconds);
     }
 
     /// <summary>
@@ -557,7 +659,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             return;
         }
 
-        ApplyLyric();
+        if (!LyricTimelineService.HasTimeline(Lyrics))
+        {
+            ApplyLyric();
+        }
 
         if (!LyricTimelineService.HasTimeline(Lyrics))
         {
@@ -575,8 +680,191 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     [RelayCommand]
     public void StopAutoLyric()
     {
+        StopAutoLyric(true);
+    }
+
+    private void StopAutoLyric(bool resetPosition)
+    {
         lyricTokenSource?.Cancel();
         IsLyricAutoSending = false;
+
+        if (resetPosition)
+        {
+            SetLyricPlaybackPosition(GetFirstTimedLyricPosition());
+        }
+    }
+
+    private void RefreshLyricDurations()
+    {
+        var timedLines = Lyrics.Where(line => line.TimeSeconds >= 0).ToList();
+
+        for (var index = 0; index < Lyrics.Count; index++)
+        {
+            Lyrics[index].DurationSeconds = 0;
+        }
+
+        for (var index = 0; index < timedLines.Count; index++)
+        {
+            var line = timedLines[index];
+            var duration = index < timedLines.Count - 1
+                ? timedLines[index + 1].TimeSeconds - line.TimeSeconds
+                : DEFAULT_LAST_LYRIC_DURATION_SECONDS;
+            line.DurationSeconds = Math.Max(0.1, duration);
+        }
+    }
+
+    private void ResetLyricSession()
+    {
+        lastAutoEnteredLyricIndex = -1;
+
+        foreach (var line in Lyrics)
+        {
+            line.IsSent = false;
+            line.Progress = 0;
+        }
+
+        SetLyricPlaybackPosition(GetFirstTimedLyricPosition());
+    }
+
+    private void SetLyricPlaybackPosition(double positionSeconds)
+    {
+        if (Lyrics.Count == 0)
+        {
+            LyricPlaybackPositionSeconds = 0;
+            ActiveLyricLine = null;
+            return;
+        }
+
+        var normalizedPosition = Math.Clamp(
+            positionSeconds,
+            GetFirstTimedLyricPosition(),
+            GetLastLyricEndPosition());
+        LyricPlaybackPositionSeconds = normalizedPosition;
+        ActiveLyricIndex = FindActiveLyricIndex(normalizedPosition);
+        RefreshActiveLyric();
+        UpdateLyricProgress(normalizedPosition);
+        ResetLyricPlaybackClock(normalizedPosition);
+    }
+
+    private void ResetLyricPlaybackClock(double positionSeconds)
+    {
+        lyricPlaybackStartPositionSeconds = positionSeconds;
+        lyricPlaybackStartedAt = DateTimeOffset.Now;
+    }
+
+    private int FindActiveLyricIndex(double positionSeconds)
+    {
+        var activeIndex = 0;
+
+        for (var index = 0; index < Lyrics.Count; index++)
+        {
+            var line = Lyrics[index];
+
+            if (line.TimeSeconds < 0)
+            {
+                continue;
+            }
+
+            if (line.TimeSeconds > positionSeconds)
+            {
+                break;
+            }
+
+            activeIndex = index;
+        }
+
+        return activeIndex;
+    }
+
+    private void UpdateLyricProgress(double positionSeconds)
+    {
+        for (var index = 0; index < Lyrics.Count; index++)
+        {
+            var line = Lyrics[index];
+
+            if (index != ActiveLyricIndex || line.TimeSeconds < 0 || line.DurationSeconds <= 0)
+            {
+                line.Progress = 0;
+                continue;
+            }
+
+            line.Progress = (positionSeconds - line.TimeSeconds) / line.DurationSeconds;
+        }
+    }
+
+    private double GetFirstTimedLyricPosition()
+    {
+        return Lyrics.FirstOrDefault(line => line.TimeSeconds >= 0)?.TimeSeconds ?? 0;
+    }
+
+    private double GetLastLyricEndPosition()
+    {
+        var lastTimedLine = Lyrics.LastOrDefault(line => line.TimeSeconds >= 0);
+        return lastTimedLine is null
+            ? 0
+            : lastTimedLine.TimeSeconds + Math.Max(0.1, lastTimedLine.DurationSeconds);
+    }
+
+    private double GetNextLyricPosition(LyricLineState line)
+    {
+        var index = Lyrics.IndexOf(line);
+
+        for (var nextIndex = index + 1; nextIndex < Lyrics.Count; nextIndex++)
+        {
+            if (Lyrics[nextIndex].TimeSeconds >= 0)
+            {
+                return Lyrics[nextIndex].TimeSeconds;
+            }
+        }
+
+        return GetLastLyricEndPosition();
+    }
+
+    private async Task<bool> SendLyricLineAsync(
+        LyricLineState line,
+        bool forceSend,
+        CancellationToken cancellationToken = default)
+    {
+        if (!forceSend && PreventRepeatedLyricSend && line.IsSent)
+        {
+            return false;
+        }
+
+        var settings = getSettings?.Invoke();
+        var account = resolveAccount?.Invoke(this);
+
+        if (settings is null || sendService is null)
+        {
+            return false;
+        }
+
+        var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
+        var message =
+            LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, line.Content);
+        await SendMessageAsync(message, account, settings, cancellationToken);
+        line.IsSent = true;
+        return true;
+    }
+
+    private async Task SendActiveLyricIfNeededAsync(CancellationToken cancellationToken)
+    {
+        if (Lyrics.Count == 0 ||
+            ActiveLyricIndex == lastAutoEnteredLyricIndex ||
+            ActiveLyricIndex < 0 ||
+            ActiveLyricIndex >= Lyrics.Count)
+        {
+            return;
+        }
+
+        var line = Lyrics[ActiveLyricIndex];
+
+        if (line.TimeSeconds < 0)
+        {
+            return;
+        }
+
+        lastAutoEnteredLyricIndex = ActiveLyricIndex;
+        await SendLyricLineAsync(line, false, cancellationToken);
     }
 
     /// <summary>
@@ -738,6 +1026,21 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 切换直播播放器播放状态。
+    /// </summary>
+    [RelayCommand]
+    public async Task ToggleLivePlayerAsync()
+    {
+        if (IsLivePlayerVisible)
+        {
+            StopLivePlayer();
+            return;
+        }
+
+        await StartLivePlayerAsync(false);
+    }
+
+    /// <summary>
     /// 开始播放直播。
     /// </summary>
     [RelayCommand]
@@ -783,6 +1086,15 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         livePlayerToken = null;
         LivePlayerUrl = "";
         IsLivePlayerVisible = false;
+    }
+
+    /// <summary>
+    /// 切换直播播放器静音状态。
+    /// </summary>
+    [RelayCommand]
+    public void ToggleLivePlayerMuted()
+    {
+        IsLivePlayerMuted = !IsLivePlayerMuted;
     }
 
     /// <summary>
@@ -850,6 +1162,23 @@ public partial class LiveRoomTabViewModel : ViewModelBase
                 IsLivePlayerVisible = false;
             }
         }
+    }
+
+    private static double NormalizeLivePlayerVolumePercent(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value))
+        {
+            return MAX_LIVE_PLAYER_VOLUME_PERCENT;
+        }
+
+        return Math.Clamp(value, MIN_LIVE_PLAYER_VOLUME_PERCENT, MAX_LIVE_PLAYER_VOLUME_PERCENT);
+    }
+
+    private static bool ShouldNormalizeLivePlayerVolumePercent(double value, double normalizedValue)
+    {
+        return double.IsNaN(value) ||
+               double.IsInfinity(value) ||
+               Math.Abs(normalizedValue - value) > double.Epsilon;
     }
 
     private async Task<LiveStreamPlaySource> RefreshLiveSourceAsync(bool throwOnError)
@@ -1109,34 +1438,22 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     {
         try
         {
-            var start = DateTimeOffset.Now;
-            var firstTime = Lyrics.FirstOrDefault(line => line.TimeSeconds >= 0)?.TimeSeconds ?? 0;
+            ResetLyricPlaybackClock(LyricPlaybackPositionSeconds);
 
-            for (var index = 0; index < Lyrics.Count; index++)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                if (cancellationToken.IsCancellationRequested)
+                var elapsed = DateTimeOffset.Now - lyricPlaybackStartedAt;
+                var nextPosition = lyricPlaybackStartPositionSeconds +
+                                   (elapsed.TotalSeconds * NormalizeLyricPlaybackRate(LyricPlaybackRate));
+
+                if (nextPosition >= GetLastLyricEndPosition())
                 {
                     break;
                 }
 
-                var line = Lyrics[index];
-
-                if (line.TimeSeconds < 0)
-                {
-                    continue;
-                }
-
-                var due = TimeSpan.FromSeconds(Math.Max(0, line.TimeSeconds - firstTime));
-                var wait = CalculateLyricPlaybackWait(due, DateTimeOffset.Now - start, LyricPlaybackRate);
-
-                if (wait > TimeSpan.Zero)
-                {
-                    await Task.Delay(wait, cancellationToken);
-                }
-
-                ActiveLyricIndex = index;
-                RefreshActiveLyric();
-                await SendCurrentLyricAsync();
+                SetLyricPlaybackPosition(nextPosition);
+                await SendActiveLyricIfNeededAsync(cancellationToken);
+                await Task.Delay(LYRIC_PLAYBACK_TICK_MS, cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -1154,6 +1471,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         {
             Lyrics[index].IsActive = index == ActiveLyricIndex;
         }
+
+        ActiveLyricLine = ActiveLyricIndex >= 0 && ActiveLyricIndex < Lyrics.Count
+            ? Lyrics[ActiveLyricIndex]
+            : null;
     }
 
     private void OnDanmuReceived(object? sender, BilibiliDanmuMessage message)

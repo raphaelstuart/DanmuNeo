@@ -7,7 +7,7 @@ namespace Yohuke.DanmuNeo.Services;
 /// <summary>
 /// 统一管理弹幕发送队列。
 /// </summary>
-public class DanmuSendService
+public class DanmuSendService : IDanmuSendService
 {
     private readonly SemaphoreSlim sendLock = new(1, 1);
     private DateTimeOffset lastSentAt = DateTimeOffset.MinValue;
