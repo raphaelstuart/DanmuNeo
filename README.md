@@ -1,93 +1,67 @@
-# TranslateDanmu
+# Yohuke Danmu Neo
 
+Yohuke Danmu Neo 是一个面向 B 站直播同传工作的桌面工具，基于 .NET、Avalonia 和 WebView 构建。它把直播监听、同传发送、歌词发送、弹幕转发、屏蔽词替换和多工作区管理集中在一个可配置的工作台里。
 
+## 功能
 
-## Getting started
+- 多工作区与多直播间标签页管理。
+- B 站账号管理，支持全局、工作区、直播间和转发规则级账号选择。
+- 直播弹幕监听、同传输入、发送历史记录和 Excel 导出。
+- 歌词库管理、歌词时间轴发送、快进快退微调和已发送去重。
+- 直播播放器追帧、静音自动播放、音量控制和画面健康检查。
+- 弹幕转发规则，支持来源直播间、发送人 UID、内容正则、开闭符号组和发送账号覆盖。
+- 屏蔽词替换库，可同时作用于同传输入和歌词发送。
+- 可配置快捷键、自动备份保留数量、缓存清理和配置导出。
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## 环境
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- .NET SDK 10.0 或更高版本。
+- macOS、Windows 或 Linux 桌面环境。
+- B 站账号 Cookie 用于发送弹幕和监听需要登录态的直播间。
 
-## Add your files
+## 开发
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+还原依赖：
 
+```bash
+dotnet restore Sources/Yohuke.DanmuNeo.sln
 ```
-cd existing_repo
-git remote add origin https://git.crestruction.org/yosymph/translate-danmu.git
-git branch -M main
-git push -uf origin main
+
+运行测试：
+
+```bash
+dotnet test Sources/Yohuke.DanmuNeo.sln --no-restore
 ```
 
-## Integrate with your tools
+启动应用：
 
-* [Set up project integrations](https://git.crestruction.org/yosymph/translate-danmu/-/settings/integrations)
+```bash
+dotnet run --project Sources/Yohuke.DanmuNeo/Yohuke.DanmuNeo.csproj
+```
 
-## Collaborate with your team
+发布当前平台版本：
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```bash
+dotnet publish Sources/Yohuke.DanmuNeo/Yohuke.DanmuNeo.csproj -c Release
+```
 
-## Test and Deploy
+## 数据目录
 
-Use the built-in continuous integration in GitLab.
+应用配置默认写入系统 ApplicationData 下的 `Yohuke.DanmuNeo` 目录。主要文件包括：
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+- `settings.json`：全局设置、快捷键、屏蔽词替换库和符号组。
+- `accounts.json`：B 站账号配置。
+- `workspaces.json`：工作区、直播间和转发规则。
+- `lyric-library.json`：本地歌词库。
+- `Backups/`：自动备份文件。
+- `Corrupt/`：损坏配置的留存副本。
 
-***
+也可以在应用的“杂项”设置页打开配置目录、缓存目录或导出全部备份。
 
-# Editing this README
+## 测试
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+测试项目位于 `Sources/Yohuke.DanmuNeo.Tests`，覆盖状态迁移、账号选择、播放器 HTML、歌词时间轴、屏蔽词替换、快捷键绑定、转发规则和历史导出等核心逻辑。提交前请至少执行：
 
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+dotnet test Sources/Yohuke.DanmuNeo.sln --no-restore
+```
