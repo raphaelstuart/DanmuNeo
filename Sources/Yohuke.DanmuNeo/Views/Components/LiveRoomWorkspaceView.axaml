@@ -358,10 +358,6 @@
                                         Command="{Binding FastForwardLyricCommand}">
                                     <LucideIcon Kind="CircleArrowRight" />
                                 </Button>
-                                <CheckBox Grid.Column="3"
-                                          IsChecked="{Binding PreventRepeatedLyricSend}"
-                                          ToolTip.Tip="退回已发送歌词时不重复发送"
-                                          VerticalAlignment="Center" />
                                 <Button Grid.Column="4"
                                         ToolTip.Tip="自动/暂停"
                                         Classes="iconButton"
@@ -374,6 +370,10 @@
                                         Command="{Binding StopAutoLyricCommand}">
                                     <LucideIcon Kind="CircleStop" />
                                 </Button>
+                                <CheckBox Grid.Column="3"
+                                          IsChecked="{Binding PreventRepeatedLyricSend}"
+                                          ToolTip.Tip="退回已发送歌词时不重复发送"
+                                          VerticalAlignment="Center" />
                             </Grid>
                             <ListBox x:Name="LyricListBox"
                                      Grid.Row="2"
@@ -434,13 +434,14 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Classes="forwardRuleCard">
-                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                                                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
                                                       RowSpacing="8">
                                                     <Grid ColumnDefinitions="Auto,*,Auto"
                                                           ColumnSpacing="8">
                                                         <CheckBox IsChecked="{Binding IsEnabled}"
                                                                   VerticalAlignment="Center" />
                                                         <ComboBox Grid.Column="1"
+                                                                  HorizontalAlignment="Stretch"
                                                                   ItemsSource="{Binding DataContext.ForwardSourceRooms, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                   SelectedValue="{Binding SourceRoomKey}"
                                                                   SelectedValueBinding="{Binding Key}">
@@ -474,6 +475,24 @@
                                                     <Grid Grid.Row="3"
                                                           ColumnDefinitions="*">
                                                         <ComboBox
+                                                            HorizontalAlignment="Stretch"
+                                                            ToolTip.Tip="转发发送账号"
+                                                            ItemsSource="{Binding DataContext.ForwardAccountOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            SelectedValue="{Binding AccountOverrideId}"
+                                                            SelectedValueBinding="{Binding AccountId}">
+                                                            <ComboBox.ItemTemplate>
+                                                                <DataTemplate DataType="items:ForwardAccountOption">
+                                                                    <TextBlock Text="{Binding DisplayName}"
+                                                                               TextTrimming="CharacterEllipsis" />
+                                                                </DataTemplate>
+                                                            </ComboBox.ItemTemplate>
+                                                        </ComboBox>
+                                                    </Grid>
+                                                    <Grid Grid.Row="4"
+                                                          ColumnDefinitions="*">
+                                                        <ComboBox
+                                                            HorizontalAlignment="Stretch"
+                                                            ToolTip.Tip="转发开闭规则"
                                                             ItemsSource="{Binding DataContext.SymbolGroups, RelativeSource={RelativeSource AncestorType=Window}}"
                                                             SelectedValue="{Binding MarkSymbolGroupId}"
                                                             SelectedValueBinding="{Binding Id}">
@@ -485,7 +504,7 @@
                                                             </ComboBox.ItemTemplate>
                                                         </ComboBox>
                                                     </Grid>
-                                                    <TextBlock Grid.Row="4"
+                                                    <TextBlock Grid.Row="5"
                                                                Text="{Binding StatusText}"
                                                                Classes="muted" />
                                                 </Grid>

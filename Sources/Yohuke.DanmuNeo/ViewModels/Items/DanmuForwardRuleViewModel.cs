@@ -99,6 +99,27 @@ public partial class DanmuForwardRuleViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 转发发送时指定的账号 ID。
+    /// </summary>
+    public string AccountOverrideId
+    {
+        get => State.AccountOverrideId ?? "";
+        set
+        {
+            var normalizedValue = value ?? "";
+
+            if (State.AccountOverrideId == normalizedValue)
+            {
+                return;
+            }
+
+            State.AccountOverrideId = normalizedValue;
+            OnPropertyChanged();
+            onChanged(this);
+        }
+    }
+
+    /// <summary>
     /// 监听发送人 UID。
     /// </summary>
     public string SenderUid

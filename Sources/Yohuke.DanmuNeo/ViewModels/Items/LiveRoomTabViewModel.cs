@@ -31,6 +31,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private readonly Dictionary<string, CancellationTokenSource> forwardTokenSources = [];
     private Func<LiveRoomTabViewModel, BilibiliAccount?>? resolveAccount;
     private Func<string, string, BilibiliAccount?>? resolveAccountByRoom;
+    private Func<string, BilibiliAccount?>? resolveAccountById;
     private Func<AppSettings>? getSettings;
     private Func<MarkSymbolGroup>? getMarkSymbolGroup;
     private Func<IEnumerable<MarkSymbolGroup>>? getSymbolGroups;
@@ -40,6 +41,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private AvatarCacheService? avatarCacheService;
     private IBilibiliLiveStreamService? liveStreamService;
     private ILivePlayerService? livePlayerService;
+    private ILiveDanmuSocketFactory liveDanmuSocketFactory = new BilibiliLiveDanmuSocketFactory();
     private Bitmap? avatarImage;
     private string? livePlayerToken;
     private bool suppressLiveQualityChange;
@@ -420,7 +422,9 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         AvatarCacheService avatarCacheService,
         Func<Task> saveState,
         IBilibiliLiveStreamService? liveStreamService = null,
-        ILivePlayerService? livePlayerService = null)
+        ILivePlayerService? livePlayerService = null,
+        Func<string, BilibiliAccount?>? resolveAccountById = null,
+        ILiveDanmuSocketFactory? liveDanmuSocketFactory = null)
     {
         this.resolveAccount = resolveAccount;
         this.resolveAccountByRoom = resolveAccountByRoom;
@@ -433,6 +437,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         this.saveState = saveState;
         this.liveStreamService = liveStreamService;
         this.livePlayerService = livePlayerService;
+        this.resolveAccountById = resolveAccountById;
+        this.liveDanmuSocketFactory = liveDanmuSocketFactory ?? new BilibiliLiveDanmuSocketFactory();
         sendService.RecordCreated += OnSendRecordCreated;
         ApplyLyric();
     }
@@ -983,7 +989,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             return;
         }
 
-        var socket = new BilibiliLiveWebSocket(parsedRoomId, account.Cookie);
+        var socket = liveDanmuSocketFactory.Create(parsedRoomId, account.Cookie);
         socket.DanmuReceived += OnDanmuReceived;
         socket.SuperChatReceived += OnSuperChatReceived;
         socket.Disconnected += (_, _) => Dispatcher.UIThread.Post(() => ConnectionStatus = "连接中断");
@@ -1430,7 +1436,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
 
         var sourceAccount = resolveAccountByRoom?.Invoke(source.WorkspaceId, source.RoomStateId);
-        var targetAccount = resolveAccount?.Invoke(this);
+        var targetAccount = ResolveForwardTargetAccount(rule, resolveAccount?.Invoke(this), out var targetAccountError);
         var settings = getSettings?.Invoke();
 
         if (sourceAccount is null || string.IsNullOrWhiteSpace(sourceAccount.Cookie))
@@ -1439,9 +1445,15 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             return;
         }
 
-        if (targetAccount is null || string.IsNullOrWhiteSpace(targetAccount.Cookie) || settings is null)
+        if (settings is null)
         {
-            SetForwardRuleStatus(rule, "目标直播间缺少账号");
+            SetForwardRuleStatus(rule, "缺少发送设置");
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(targetAccountError) || targetAccount is null)
+        {
+            SetForwardRuleStatus(rule, targetAccountError);
             return;
         }
 
@@ -1457,7 +1469,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
         _ = Task.Run(async () =>
         {
-            var socket = new BilibiliLiveWebSocket(sourceRoomId, sourceAccount.Cookie);
+            var socket = liveDanmuSocketFactory.Create(sourceRoomId, sourceAccount.Cookie);
             socket.DanmuReceived += (_, message) =>
                 _ = ForwardDanmuAsync(rule, message, targetAccount, settings, tokenSource.Token);
             socket.ErrorReceived += (_, exception) => SetForwardRuleStatus(rule, $"监听失败：{exception.Message}");
@@ -1487,6 +1499,41 @@ public partial class LiveRoomTabViewModel : ViewModelBase
                 tokenSource.Dispose();
             }
         });
+    }
+
+    private BilibiliAccount? ResolveForwardTargetAccount(
+        DanmuForwardRuleViewModel rule,
+        BilibiliAccount? fallbackAccount,
+        out string error)
+    {
+        error = "";
+
+        if (string.IsNullOrWhiteSpace(rule.AccountOverrideId))
+        {
+            if (fallbackAccount is null || string.IsNullOrWhiteSpace(fallbackAccount.Cookie))
+            {
+                error = "目标直播间缺少账号";
+                return null;
+            }
+
+            return fallbackAccount;
+        }
+
+        var account = resolveAccountById?.Invoke(rule.AccountOverrideId);
+
+        if (account is null)
+        {
+            error = "指定账号不存在";
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(account.Cookie))
+        {
+            error = "指定账号缺少 Cookie";
+            return null;
+        }
+
+        return account;
     }
 
     private async Task ForwardDanmuAsync(
@@ -1535,6 +1582,12 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     private void SetForwardRuleStatus(DanmuForwardRuleViewModel rule, string status)
     {
+        if (Dispatcher.UIThread.CheckAccess())
+        {
+            rule.StatusText = status;
+            return;
+        }
+
         Dispatcher.UIThread.Post(() => rule.StatusText = status);
     }
 

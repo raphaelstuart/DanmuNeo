@@ -11,6 +11,8 @@ public class FakeDanmuSendService : IDanmuSendService
 
     public List<string> SentMessages { get; } = [];
 
+    public List<BilibiliAccount?> SentAccounts { get; } = [];
+
     public Task<bool> SendAsync(
         string roomId,
         string message,
@@ -19,6 +21,7 @@ public class FakeDanmuSendService : IDanmuSendService
         CancellationToken cancellationToken = default)
     {
         SentMessages.Add(message);
+        SentAccounts.Add(account);
         RecordCreated?.Invoke(this, new()
         {
             Time = DateTimeOffset.Now,

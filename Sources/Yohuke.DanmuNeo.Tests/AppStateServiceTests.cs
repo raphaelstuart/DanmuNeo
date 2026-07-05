@@ -400,6 +400,7 @@ public class AppStateServiceTests
                                     SourceWorkspaceId = "source-workspace",
                                     SourceRoomStateId = "source-room",
                                     MarkSymbolGroupId = "mark-group",
+                                    AccountOverrideId = "forward-account",
                                     SenderUid = "42",
                                     ContentPattern = "^【.+】$",
                                     IsEnabled = true
@@ -420,6 +421,7 @@ public class AppStateServiceTests
         Assert.Equal("source-workspace", rule.SourceWorkspaceId);
         Assert.Equal("source-room", rule.SourceRoomStateId);
         Assert.Equal("mark-group", rule.MarkSymbolGroupId);
+        Assert.Equal("forward-account", rule.AccountOverrideId);
         Assert.Equal("42", rule.SenderUid);
         Assert.Equal("^【.+】$", rule.ContentPattern);
     }

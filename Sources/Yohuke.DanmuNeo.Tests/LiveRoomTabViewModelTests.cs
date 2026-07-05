@@ -585,6 +585,168 @@ public class LiveRoomTabViewModelTests
     }
 
     [Fact]
+    public async Task ForwardRuleUsesSpecifiedAccountWhenConfigured()
+    {
+        var sourceAccount = new BilibiliAccount
+        {
+            Id = "source-account",
+            Cookie = "source-cookie"
+        };
+        var targetAccount = new BilibiliAccount
+        {
+            Id = "target-account",
+            Cookie = "target-cookie"
+        };
+        var specifiedAccount = new BilibiliAccount
+        {
+            Id = "specified-account",
+            Cookie = "specified-cookie"
+        };
+        var source = CreateForwardSourceRoomOption();
+        var sendService = new FakeDanmuSendService();
+        var socketFactory = new FakeLiveDanmuSocketFactory();
+        socketFactory.Socket.NextMessage = new()
+        {
+            RoomId = source.RoomId,
+            Uid = 42,
+            UserName = "发送者",
+            Content = "转发内容"
+        };
+        var state = CreateForwardTargetState(source, specifiedAccount.Id);
+
+        var viewModel = CreateConfiguredViewModel(
+            new(),
+            sendService,
+            resolveAccount: _ => targetAccount,
+            resolveAccountByRoom: (_, _) => sourceAccount,
+            resolveAccountById: accountId => accountId == specifiedAccount.Id ? specifiedAccount : null,
+            getForwardSourceRooms: _ => [source],
+            liveDanmuSocketFactory: socketFactory,
+            state: state);
+
+        viewModel.RestartForwarding();
+        await WaitForAsync(() => sendService.SentAccounts.Count > 0);
+
+        Assert.Same(specifiedAccount, sendService.SentAccounts[0]);
+        Assert.Equal(["【转发内容】"], sendService.SentMessages);
+        Assert.Equal(100L, socketFactory.Requests[0].RoomId);
+        Assert.Equal("source-cookie", socketFactory.Requests[0].Cookie);
+    }
+
+    [Fact]
+    public async Task ForwardRuleFallsBackToTargetRoomAccountWhenAccountNotSpecified()
+    {
+        var sourceAccount = new BilibiliAccount
+        {
+            Id = "source-account",
+            Cookie = "source-cookie"
+        };
+        var targetAccount = new BilibiliAccount
+        {
+            Id = "target-account",
+            Cookie = "target-cookie"
+        };
+        var source = CreateForwardSourceRoomOption();
+        var sendService = new FakeDanmuSendService();
+        var socketFactory = new FakeLiveDanmuSocketFactory();
+        socketFactory.Socket.NextMessage = new()
+        {
+            RoomId = source.RoomId,
+            Uid = 42,
+            UserName = "发送者",
+            Content = "转发内容"
+        };
+        var state = CreateForwardTargetState(source, "");
+
+        var viewModel = CreateConfiguredViewModel(
+            new(),
+            sendService,
+            resolveAccount: _ => targetAccount,
+            resolveAccountByRoom: (_, _) => sourceAccount,
+            resolveAccountById: _ => throw new InvalidOperationException("未指定账号时不应解析规则账号"),
+            getForwardSourceRooms: _ => [source],
+            liveDanmuSocketFactory: socketFactory,
+            state: state);
+
+        viewModel.RestartForwarding();
+        await WaitForAsync(() => sendService.SentAccounts.Count > 0);
+
+        Assert.Same(targetAccount, sendService.SentAccounts[0]);
+        Assert.Equal(["【转发内容】"], sendService.SentMessages);
+    }
+
+    [Fact]
+    public async Task ForwardRuleShowsMissingStatusWhenSpecifiedAccountDoesNotExist()
+    {
+        var sourceAccount = new BilibiliAccount
+        {
+            Id = "source-account",
+            Cookie = "source-cookie"
+        };
+        var targetAccount = new BilibiliAccount
+        {
+            Id = "target-account",
+            Cookie = "target-cookie"
+        };
+        var source = CreateForwardSourceRoomOption();
+        var socketFactory = new FakeLiveDanmuSocketFactory();
+        var state = CreateForwardTargetState(source, "missing-account");
+
+        var viewModel = CreateConfiguredViewModel(
+            new(),
+            resolveAccount: _ => targetAccount,
+            resolveAccountByRoom: (_, _) => sourceAccount,
+            resolveAccountById: _ => null,
+            getForwardSourceRooms: _ => [source],
+            liveDanmuSocketFactory: socketFactory,
+            state: state);
+
+        viewModel.RestartForwarding();
+        await WaitForAsync(() => viewModel.ForwardRules[0].StatusText == "指定账号不存在");
+
+        Assert.Equal("指定账号不存在", viewModel.ForwardRules[0].StatusText);
+        Assert.Empty(socketFactory.Requests);
+    }
+
+    [Fact]
+    public async Task ForwardRuleShowsCookieStatusWhenSpecifiedAccountHasNoCookie()
+    {
+        var sourceAccount = new BilibiliAccount
+        {
+            Id = "source-account",
+            Cookie = "source-cookie"
+        };
+        var targetAccount = new BilibiliAccount
+        {
+            Id = "target-account",
+            Cookie = "target-cookie"
+        };
+        var specifiedAccount = new BilibiliAccount
+        {
+            Id = "specified-account",
+            Cookie = ""
+        };
+        var source = CreateForwardSourceRoomOption();
+        var socketFactory = new FakeLiveDanmuSocketFactory();
+        var state = CreateForwardTargetState(source, specifiedAccount.Id);
+
+        var viewModel = CreateConfiguredViewModel(
+            new(),
+            resolveAccount: _ => targetAccount,
+            resolveAccountByRoom: (_, _) => sourceAccount,
+            resolveAccountById: _ => specifiedAccount,
+            getForwardSourceRooms: _ => [source],
+            liveDanmuSocketFactory: socketFactory,
+            state: state);
+
+        viewModel.RestartForwarding();
+        await WaitForAsync(() => viewModel.ForwardRules[0].StatusText == "指定账号缺少 Cookie");
+
+        Assert.Equal("指定账号缺少 Cookie", viewModel.ForwardRules[0].StatusText);
+        Assert.Empty(socketFactory.Requests);
+    }
+
+    [Fact]
     public void RoomInfoPropertiesWriteState()
     {
         var state = new LiveRoomTabState
@@ -691,26 +853,82 @@ public class LiveRoomTabViewModelTests
         Assert.Equal("未连接", viewModel.ConnectionStatus);
     }
 
+    private static ForwardSourceRoomOption CreateForwardSourceRoomOption()
+    {
+        return new()
+        {
+            WorkspaceId = "source-workspace",
+            WorkspaceName = "来源工作区",
+            RoomStateId = "source-room",
+            RoomId = "100",
+            RoomName = "来源直播间"
+        };
+    }
+
+    private static LiveRoomTabState CreateForwardTargetState(
+        ForwardSourceRoomOption source,
+        string accountOverrideId)
+    {
+        return new()
+        {
+            RoomId = "200",
+            ForwardRules =
+            [
+                new()
+                {
+                    IsEnabled = true,
+                    SourceWorkspaceId = source.WorkspaceId,
+                    SourceRoomStateId = source.RoomStateId,
+                    SenderUid = "42",
+                    AccountOverrideId = accountOverrideId
+                }
+            ]
+        };
+    }
+
+    private static async Task WaitForAsync(Func<bool> predicate)
+    {
+        for (var index = 0; index < 50; index++)
+        {
+            if (predicate())
+            {
+                return;
+            }
+
+            await Task.Delay(20);
+        }
+
+        Assert.True(predicate());
+    }
+
     private static LiveRoomTabViewModel CreateConfiguredViewModel(
         AppSettings settings,
         IDanmuSendService? sendService = null,
         IBilibiliLiveStreamService? liveStreamService = null,
-        ILivePlayerService? livePlayerService = null)
+        ILivePlayerService? livePlayerService = null,
+        Func<LiveRoomTabViewModel, BilibiliAccount?>? resolveAccount = null,
+        Func<string, string, BilibiliAccount?>? resolveAccountByRoom = null,
+        Func<string, BilibiliAccount?>? resolveAccountById = null,
+        Func<LiveRoomTabViewModel, IEnumerable<ForwardSourceRoomOption>>? getForwardSourceRooms = null,
+        ILiveDanmuSocketFactory? liveDanmuSocketFactory = null,
+        LiveRoomTabState? state = null)
     {
-        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState());
+        var viewModel = new LiveRoomTabViewModel(state ?? new LiveRoomTabState());
         viewModel.Configure(
-            _ => null,
-            (_, _) => null,
+            resolveAccount ?? (_ => null),
+            resolveAccountByRoom ?? ((_, _) => null),
             () => settings,
             () => MarkSymbolService.CreateDefaultGroup(settings),
             () => [],
-            _ => [],
+            getForwardSourceRooms ?? (_ => []),
             sendService ?? new DanmuSendService(),
             new AvatarCacheService(
                 new AppDirectoryService(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N")))),
             () => Task.CompletedTask,
             liveStreamService,
-            livePlayerService);
+            livePlayerService,
+            resolveAccountById,
+            liveDanmuSocketFactory);
 
         return viewModel;
     }

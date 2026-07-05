@@ -515,6 +515,8 @@ public class AppStateService
                     {
                         rule.MarkSymbolGroupId = "";
                     }
+
+                    rule.AccountOverrideId ??= "";
                 }
             }
 

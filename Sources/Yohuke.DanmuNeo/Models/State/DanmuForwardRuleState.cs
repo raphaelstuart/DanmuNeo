@@ -31,6 +31,11 @@ public class DanmuForwardRuleState
     public string MarkSymbolGroupId { get; set; } = "";
 
     /// <summary>
+    /// 转发发送时指定的账号 ID。
+    /// </summary>
+    public string AccountOverrideId { get; set; } = "";
+
+    /// <summary>
     /// 监听发送人 UID。
     /// </summary>
     public string SenderUid { get; set; } = "";

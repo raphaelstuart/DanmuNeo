@@ -15,7 +15,7 @@ namespace Yohuke.DanmuNeo.Apis;
 /// <summary>
 /// B 站直播弹幕 WebSocket 客户端。
 /// </summary>
-public class BilibiliLiveWebSocket : BaseApi
+public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
 {
     private const string URL_GET_DANMU_INFO = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo";
     private static readonly Regex TL_PATTERN1 = new(@"^【(?<speaker>[^:：]{1,5})[:：](?<content>[^】]+)", RegexOptions.Compiled);

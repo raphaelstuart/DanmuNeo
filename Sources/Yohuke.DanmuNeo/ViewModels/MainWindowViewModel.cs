@@ -54,6 +54,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Settings = State.Settings;
         ShortcutBindingService.Normalize(Settings);
         Accounts = new(State.Accounts);
+        ForwardAccountOptions = [];
         SymbolGroups = new(Settings.MarkGroups.OrderBy(group => group.SortOrder));
         ShieldReplacementRules = new(Settings.ShieldReplacementRules.OrderBy(rule => rule.SortOrder));
         LyricLibrary = new(State.LyricLibrary);
@@ -66,6 +67,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         RefreshThemeModeOptions();
         RefreshShortcutBindingGroups();
         RefreshSettingsSectionOptions();
+        RefreshForwardAccountOptions();
         RefreshCacheSize();
         RefreshTreeSelection();
         RefreshForwardSourceRooms();
@@ -91,6 +93,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// 账号列表。
     /// </summary>
     public ObservableCollection<BilibiliAccount> Accounts { get; }
+
+    /// <summary>
+    /// 转发发送账号选项。
+    /// </summary>
+    public ObservableCollection<ForwardAccountOption> ForwardAccountOptions { get; }
 
     /// <summary>
     /// 符号组列表。
@@ -1029,6 +1036,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         Accounts.Add(account);
         State.Accounts.Add(account);
         RefreshAccountLabels();
+        RefreshForwardAccountOptions();
         await SaveAsync();
     }
 
@@ -1053,6 +1061,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             };
             Accounts.Add(targetAccount);
             State.Accounts.Add(targetAccount);
+            RefreshForwardAccountOptions();
         }
 
         targetAccount.Cookie = result.Cookie;
@@ -1104,7 +1113,16 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
                 {
                     room.AccountOverrideId = null;
                 }
+
             }
+        }
+
+        foreach (var rule in Workspaces
+                     .SelectMany(workspace => workspace.Rooms)
+                     .SelectMany(room => room.ForwardRules)
+                     .Where(rule => rule.AccountOverrideId == account.Id))
+        {
+            rule.AccountOverrideId = "";
         }
 
         if (Accounts.Count > 0 && Accounts.All(item => !item.IsGlobalDefault))
@@ -1113,6 +1131,7 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         RefreshAccountLabels();
+        RefreshForwardAccountOptions();
         await SaveAsync();
     }
 
@@ -1632,7 +1651,8 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
             avatarCacheService,
             SaveAsync,
             liveStreamService,
-            livePlayerService);
+            livePlayerService,
+            ResolveAccount);
         _ = room.LoadAvatarAsync();
     }
 
@@ -1672,6 +1692,16 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         return accountSelectionService.Resolve(State, workspace.State, room?.State);
+    }
+
+    private BilibiliAccount? ResolveAccount(string accountId)
+    {
+        if (string.IsNullOrWhiteSpace(accountId))
+        {
+            return null;
+        }
+
+        return Accounts.FirstOrDefault(account => account.Id == accountId);
     }
 
     private IEnumerable<ForwardSourceRoomOption> CreateForwardSourceRoomOptions(LiveRoomTabViewModel targetRoom)
@@ -1844,6 +1874,25 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
         foreach (var workspace in Workspaces)
         {
             workspace.RefreshAccountLabel();
+        }
+    }
+
+    private void RefreshForwardAccountOptions()
+    {
+        ForwardAccountOptions.Clear();
+        ForwardAccountOptions.Add(new()
+        {
+            AccountId = "",
+            DisplayName = "使用目标直播间账号"
+        });
+
+        foreach (var account in Accounts)
+        {
+            ForwardAccountOptions.Add(new()
+            {
+                AccountId = account.Id,
+                DisplayName = account.Name
+            });
         }
     }
 
