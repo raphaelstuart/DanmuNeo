@@ -6,6 +6,11 @@ namespace Yohuke.DanmuNeo.Apis.Models.Bilibili;
 public class BilibiliSuperChatMessage
 {
     /// <summary>
+    /// SC 消息 ID。
+    /// </summary>
+    public string MessageId { get; set; } = "";
+
+    /// <summary>
     /// 直播间 ID。
     /// </summary>
     public string RoomId { get; set; } = "";
@@ -24,6 +29,11 @@ public class BilibiliSuperChatMessage
     /// 金额文本。
     /// </summary>
     public string PriceText { get; set; } = "";
+
+    /// <summary>
+    /// B 站 SC 边框颜色。
+    /// </summary>
+    public string BorderColor { get; set; } = "#2A60B2";
 
     /// <summary>
     /// SC 内容。

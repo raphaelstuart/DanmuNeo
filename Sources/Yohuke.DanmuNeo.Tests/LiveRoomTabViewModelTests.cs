@@ -1,3 +1,5 @@
+using Avalonia.Media;
+using Yohuke.DanmuNeo.Apis.Models.Bilibili;
 using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.Models.Workspace;
 using Yohuke.DanmuNeo.Services;
@@ -7,6 +9,72 @@ namespace Yohuke.DanmuNeo.Tests;
 
 public class LiveRoomTabViewModelTests
 {
+    [Fact]
+    public void RepeatedSuperChatIdIsDisplayedOnce()
+    {
+        var viewModel = new LiveRoomTabViewModel(new());
+        var message = CreateSuperChatMessage("sc-1");
+
+        viewModel.AddSuperChat(message);
+        viewModel.AddSuperChat(message);
+
+        var item = Assert.Single(viewModel.SuperChats);
+        Assert.Equal("sc-1", item.MessageId);
+        Assert.Equal("￥30", item.PriceText);
+        Assert.Equal(Color.Parse("#3171D2"), item.BorderColor);
+    }
+
+    [Fact]
+    public void DifferentSuperChatIdsAreDisplayedSeparately()
+    {
+        var viewModel = new LiveRoomTabViewModel(new());
+
+        viewModel.AddSuperChat(CreateSuperChatMessage("sc-1"));
+        viewModel.AddSuperChat(CreateSuperChatMessage("sc-2"));
+
+        Assert.Equal(2, viewModel.SuperChats.Count);
+    }
+
+    [Fact]
+    public void SuperChatWithoutIdUsesFallbackIdentity()
+    {
+        var viewModel = new LiveRoomTabViewModel(new());
+        var message = CreateSuperChatMessage("");
+
+        viewModel.AddSuperChat(message);
+        viewModel.AddSuperChat(CreateSuperChatMessage(""));
+
+        Assert.Single(viewModel.SuperChats);
+    }
+
+    [Fact]
+    public void SuperChatInvalidColorUsesBilibiliBlue()
+    {
+        var viewModel = new LiveRoomTabViewModel(new());
+        var message = CreateSuperChatMessage("sc-1");
+        message.BorderColor = "invalid";
+
+        viewModel.AddSuperChat(message);
+
+        Assert.Equal(Color.Parse("#2A60B2"), Assert.Single(viewModel.SuperChats).BorderColor);
+    }
+
+    [Fact]
+    public void SuperChatDeduplicationHistoryIsBounded()
+    {
+        var viewModel = new LiveRoomTabViewModel(new());
+
+        for (var index = 0; index <= 512; index++)
+        {
+            viewModel.AddSuperChat(CreateSuperChatMessage($"sc-{index}"));
+        }
+
+        viewModel.AddSuperChat(CreateSuperChatMessage("sc-0"));
+
+        Assert.Equal(100, viewModel.SuperChats.Count);
+        Assert.Equal("sc-0", viewModel.SuperChats[0].MessageId);
+    }
+
     [Fact]
     public void CopySuperChatInsertsWrappedContentToInputDraft()
     {
@@ -862,6 +930,21 @@ public class LiveRoomTabViewModelTests
             RoomStateId = "source-room",
             RoomId = "100",
             RoomName = "来源直播间"
+        };
+    }
+
+    private static BilibiliSuperChatMessage CreateSuperChatMessage(string messageId)
+    {
+        return new()
+        {
+            MessageId = messageId,
+            RoomId = "100",
+            UserName = "用户",
+            Price = 30,
+            PriceText = "￥30",
+            BorderColor = "#3171D2",
+            Content = "SC内容",
+            Timestamp = 123456
         };
     }
 

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -25,10 +26,14 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private const int LYRIC_PLAYBACK_TICK_MS = 50;
     private const double MIN_LIVE_PLAYER_VOLUME_PERCENT = 0;
     private const double MAX_LIVE_PLAYER_VOLUME_PERCENT = 100;
+    private const int MAX_RECENT_SUPER_CHAT_IDENTITIES = 512;
+    private const string DEFAULT_SUPER_CHAT_COLOR = "#2A60B2";
 
     private CancellationTokenSource? listenTokenSource;
     private CancellationTokenSource? lyricTokenSource;
     private readonly Dictionary<string, CancellationTokenSource> forwardTokenSources = [];
+    private readonly HashSet<string> recentSuperChatIdentities = new(StringComparer.Ordinal);
+    private readonly Queue<string> recentSuperChatIdentityOrder = new();
     private Func<LiveRoomTabViewModel, BilibiliAccount?>? resolveAccount;
     private Func<string, string, BilibiliAccount?>? resolveAccountByRoom;
     private Func<string, BilibiliAccount?>? resolveAccountById;
@@ -982,20 +987,22 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             return;
         }
 
-        listenTokenSource = new();
         if (!long.TryParse(RoomId, out var parsedRoomId))
         {
             ConnectionStatus = "房间号格式错误";
             return;
         }
 
+        var tokenSource = new CancellationTokenSource();
+        listenTokenSource = tokenSource;
         var socket = liveDanmuSocketFactory.Create(parsedRoomId, account.Cookie);
         socket.DanmuReceived += OnDanmuReceived;
         socket.SuperChatReceived += OnSuperChatReceived;
-        socket.Disconnected += (_, _) => Dispatcher.UIThread.Post(() => ConnectionStatus = "连接中断");
-        socket.Recovered += (_, _) => Dispatcher.UIThread.Post(() => ConnectionStatus = "已恢复");
-        socket.ErrorReceived += (_, exception) =>
-            Dispatcher.UIThread.Post(() => ConnectionStatus = $"监听失败：{exception.Message}");
+        socket.Disconnected += (_, _) =>
+            Dispatcher.UIThread.Post(() => ConnectionStatus = "连接中断，正在重连");
+        socket.Recovered += (_, _) => Dispatcher.UIThread.Post(() => ConnectionStatus = "监听中");
+        socket.ErrorReceived += (_, _) =>
+            Dispatcher.UIThread.Post(() => ConnectionStatus = "连接中断，正在重连");
         IsListening = true;
         ConnectionStatus = "监听中";
 
@@ -1003,12 +1010,24 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         {
             try
             {
-                await socket.StartAsync(listenTokenSource.Token);
+                await socket.StartAsync(tokenSource.Token);
             }
             finally
             {
+                if (socket is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+
+                tokenSource.Dispose();
                 Dispatcher.UIThread.Post(() =>
                 {
+                    if (listenTokenSource != tokenSource)
+                    {
+                        return;
+                    }
+
+                    listenTokenSource = null;
                     IsListening = false;
                     ConnectionStatus = "未连接";
                 });
@@ -1472,8 +1491,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             var socket = liveDanmuSocketFactory.Create(sourceRoomId, sourceAccount.Cookie);
             socket.DanmuReceived += (_, message) =>
                 _ = ForwardDanmuAsync(rule, message, targetAccount, settings, tokenSource.Token);
-            socket.ErrorReceived += (_, exception) => SetForwardRuleStatus(rule, $"监听失败：{exception.Message}");
-            socket.Disconnected += (_, _) => SetForwardRuleStatus(rule, "连接中断");
+            socket.ErrorReceived += (_, _) => SetForwardRuleStatus(rule, "连接中断，正在重连");
+            socket.Disconnected += (_, _) => SetForwardRuleStatus(rule, "连接中断，正在重连");
             socket.Recovered += (_, _) => SetForwardRuleStatus(rule, "监听中");
 
             try
@@ -1494,6 +1513,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
                 if (!tokenSource.IsCancellationRequested && rule.IsEnabled)
                 {
                     SetForwardRuleStatus(rule, "已停止");
+                }
+
+                if (socket is IDisposable disposable)
+                {
+                    disposable.Dispose();
                 }
 
                 tokenSource.Dispose();
@@ -1673,17 +1697,57 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     private void OnSuperChatReceived(object? sender, BilibiliSuperChatMessage message)
     {
-        Dispatcher.UIThread.Post(() =>
+        Dispatcher.UIThread.Post(() => AddSuperChat(message));
+    }
+
+    internal void AddSuperChat(BilibiliSuperChatMessage message)
+    {
+        var identity = CreateSuperChatIdentity(message);
+
+        if (!recentSuperChatIdentities.Add(identity))
         {
-            SuperChats.Insert(0, new()
-            {
-                Time = DateTimeOffset.FromUnixTimeSeconds(message.Timestamp),
-                UserName = message.UserName,
-                PriceText = message.PriceText,
-                Content = message.Content
-            });
-            Trim(SuperChats, 100);
+            return;
+        }
+
+        recentSuperChatIdentityOrder.Enqueue(identity);
+
+        while (recentSuperChatIdentityOrder.Count > MAX_RECENT_SUPER_CHAT_IDENTITIES)
+        {
+            recentSuperChatIdentities.Remove(recentSuperChatIdentityOrder.Dequeue());
+        }
+
+        SuperChats.Insert(0, new()
+        {
+            MessageId = message.MessageId,
+            Time = DateTimeOffset.FromUnixTimeSeconds(message.Timestamp),
+            UserName = message.UserName,
+            PriceText = message.PriceText,
+            BorderColor = CreateSuperChatBorderColor(message.BorderColor),
+            Content = message.Content
         });
+        Trim(SuperChats, 100);
+    }
+
+    private static string CreateSuperChatIdentity(BilibiliSuperChatMessage message)
+    {
+        if (!string.IsNullOrWhiteSpace(message.MessageId))
+        {
+            return $"id:{message.MessageId.Trim()}";
+        }
+
+        return string.Join(
+            '|',
+            "fallback",
+            message.RoomId,
+            message.Timestamp.ToString(CultureInfo.InvariantCulture),
+            message.UserName,
+            message.Price.ToString(CultureInfo.InvariantCulture),
+            message.Content);
+    }
+
+    private static Color CreateSuperChatBorderColor(string colorText)
+    {
+        return Color.TryParse(colorText, out var color) ? color : Color.Parse(DEFAULT_SUPER_CHAT_COLOR);
     }
 
     private void OnSendRecordCreated(object? sender, DanmuFeedItem item)

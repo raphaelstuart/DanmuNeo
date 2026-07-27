@@ -1,3 +1,5 @@
+using Avalonia.Media;
+
 namespace Yohuke.DanmuNeo.Models.Workspace;
 
 /// <summary>
@@ -5,6 +7,11 @@ namespace Yohuke.DanmuNeo.Models.Workspace;
 /// </summary>
 public class SuperChatItem
 {
+    /// <summary>
+    /// SC 消息 ID。
+    /// </summary>
+    public string MessageId { get; set; } = "";
+
     /// <summary>
     /// 发送时间。
     /// </summary>
@@ -19,6 +26,11 @@ public class SuperChatItem
     /// 金额文本。
     /// </summary>
     public string PriceText { get; set; } = "";
+
+    /// <summary>
+    /// SC 边框颜色。
+    /// </summary>
+    public Color BorderColor { get; set; } = Color.Parse("#2A60B2");
 
     /// <summary>
     /// 展示时间。

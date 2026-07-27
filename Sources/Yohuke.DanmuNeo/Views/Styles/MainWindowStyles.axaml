@@ -836,8 +836,8 @@
     </Style>
 
     <Style Selector="Button.scFeedButton">
-        <Setter Property="Padding" Value="6,4" />
-        <Setter Property="Margin" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0,0,0,4" />
         <Setter Property="MinHeight" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
@@ -846,6 +846,17 @@
 
     <Style Selector="Button.scFeedButton:pointerover">
         <Setter Property="Background" Value="{DynamicResource AppSidebarHoverBrush}" />
+    </Style>
+
+    <Style Selector="Border.scFeedCard">
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="CornerRadius" Value="7" />
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="TextBlock.scFeedPrice">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Bold" />
     </Style>
 
     <Style Selector="TextBlock.danmuFeedUser">

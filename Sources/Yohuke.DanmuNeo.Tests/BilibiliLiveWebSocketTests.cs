@@ -58,9 +58,11 @@ public class BilibiliLiveWebSocketTests
         {
           "cmd": "SUPER_CHAT_MESSAGE",
           "data": {
+            "id": 987654321,
             "message": "SC内容",
             "price": 30,
             "price_text": "￥30",
+            "background_color_start": "#3171D2",
             "ts": 123456,
             "user_info": {
               "uname": "用户B"
@@ -72,10 +74,89 @@ public class BilibiliLiveWebSocketTests
         var message = BilibiliLiveWebSocket.ParseSuperChatMessage("200", json);
 
         Assert.NotNull(message);
+        Assert.Equal("987654321", message.MessageId);
         Assert.Equal("200", message.RoomId);
         Assert.Equal("用户B", message.UserName);
         Assert.Equal(30, message.Price);
         Assert.Equal("￥30", message.PriceText);
+        Assert.Equal("#3171D2", message.BorderColor);
         Assert.Equal("SC内容", message.Content);
+    }
+
+    [Fact]
+    public void ParseSuperChatMessageUsesNextValidBilibiliColor()
+    {
+        var json = JObject.Parse("""
+        {
+          "cmd": "SUPER_CHAT_MESSAGE",
+          "data": {
+            "message": "SC内容",
+            "price": 50,
+            "background_color_start": "invalid",
+            "background_bottom_color": "#2A60B2",
+            "background_price_color": "#7497CD",
+            "ts": 123456,
+            "user_info": {
+              "uname": "用户B"
+            }
+          }
+        }
+        """);
+
+        var message = BilibiliLiveWebSocket.ParseSuperChatMessage("200", json);
+
+        Assert.NotNull(message);
+        Assert.Equal("￥50", message.PriceText);
+        Assert.Equal("#2A60B2", message.BorderColor);
+    }
+
+    [Fact]
+    public void ParseSuperChatMessageFallsBackToDefaultColor()
+    {
+        var json = JObject.Parse("""
+        {
+          "cmd": "SUPER_CHAT_MESSAGE",
+          "data": {
+            "message": "SC内容",
+            "price": 30,
+            "background_color_start": "invalid",
+            "ts": 123456,
+            "user_info": {
+              "uname": "用户B"
+            }
+          }
+        }
+        """);
+
+        var message = BilibiliLiveWebSocket.ParseSuperChatMessage("200", json);
+
+        Assert.NotNull(message);
+        Assert.Equal("#2A60B2", message.BorderColor);
+    }
+
+    [Fact]
+    public void ParseSuperChatMessageUsesPriceColorAfterInvalidPrimaryColors()
+    {
+        var json = JObject.Parse("""
+        {
+          "cmd": "SUPER_CHAT_MESSAGE",
+          "data": {
+            "message": "SC内容",
+            "price": 100,
+            "background_color_start": "invalid",
+            "background_bottom_color": "also-invalid",
+            "background_price_color": "#E2B52B",
+            "ts": 123456,
+            "user_info": {
+              "uname": "用户B"
+            }
+          }
+        }
+        """);
+
+        var message = BilibiliLiveWebSocket.ParseSuperChatMessage("200", json);
+
+        Assert.NotNull(message);
+        Assert.Equal("#E2B52B", message.BorderColor);
     }
 }

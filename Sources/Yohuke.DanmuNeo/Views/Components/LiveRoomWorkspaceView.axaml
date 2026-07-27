@@ -179,11 +179,70 @@
                     Padding="14">
                 <TabControl Classes="workspaceToolTabs">
                     <TabItem Header="弹幕">
-                        <Grid RowDefinitions="*"
-                              RowSpacing="10"
-                              Margin="0,10,0,0">
+                        <Grid Margin="0,10,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="35*" MinHeight="100" />
+                                <RowDefinition Height="4" />
+                                <RowDefinition Height="65*" MinHeight="160" />
+                            </Grid.RowDefinitions>
+
+                            <Grid RowDefinitions="*"
+                                  RowSpacing="6">
+                                <ListBox Grid.Row="0"
+                                         Classes="feedList"
+                                         ItemsSource="{Binding SuperChats}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate DataType="workspace:SuperChatItem">
+                                            <Button Classes="scFeedButton"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Stretch"
+                                                    Click="SuperChat_OnClick">
+                                                <Border Classes="scFeedCard"
+                                                        BorderThickness="2">
+                                                    <Border.BorderBrush>
+                                                        <SolidColorBrush Color="{Binding BorderColor}" />
+                                                    </Border.BorderBrush>
+                                                    <Grid RowDefinitions="Auto,Auto"
+                                                          RowSpacing="5">
+                                                        <Grid ColumnDefinitions="*,Auto"
+                                                              ColumnSpacing="8">
+                                                            <StackPanel Spacing="1">
+                                                                <TextBlock Text="{Binding UserName}"
+                                                                           Classes="danmuFeedUser"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding DisplayTime}"
+                                                                           Classes="danmuFeedMeta" />
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding PriceText}"
+                                                                       Classes="scFeedPrice"
+                                                                       VerticalAlignment="Center">
+                                                                <TextBlock.Foreground>
+                                                                    <SolidColorBrush Color="{Binding BorderColor}" />
+                                                                </TextBlock.Foreground>
+                                                            </TextBlock>
+                                                        </Grid>
+                                                        <TextBlock Grid.Row="1"
+                                                                   Text="{Binding Content}"
+                                                                   Classes="danmuFeedContent"
+                                                                   TextWrapping="Wrap" />
+                                                    </Grid>
+                                                </Border>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+
+                            <GridSplitter Grid.Row="1"
+                                          Height="4"
+                                          HorizontalAlignment="Stretch"
+                                          ResizeDirection="Rows"
+                                          ResizeBehavior="PreviousAndNext" />
+
                             <ScrollViewer x:Name="DanmuScrollViewer"
-                                          Grid.Row="0">
+                                          Grid.Row="2"
+                                          Margin="0,6,0,0">
                                 <ItemsControl x:Name="DanmuItemsControl"
                                               ItemsSource="{Binding DanmuItems}">
                                     <ItemsControl.ItemTemplate>
@@ -213,41 +272,6 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
-                        </Grid>
-                    </TabItem>
-
-                    <TabItem Header="SC">
-                        <Grid RowDefinitions="*"
-                              RowSpacing="10"
-                              Margin="0,10,0,0">
-                            <ListBox Grid.Row="0"
-                                     Classes="feedList"
-                                     ItemsSource="{Binding SuperChats}">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate DataType="workspace:SuperChatItem">
-                                        <Button Classes="scFeedButton"
-                                                HorizontalAlignment="Stretch"
-                                                HorizontalContentAlignment="Stretch"
-                                                Click="SuperChat_OnClick">
-                                            <Grid ColumnDefinitions="96,*"
-                                                  ColumnSpacing="10">
-                                                <StackPanel Spacing="1">
-                                                    <TextBlock Text="{Binding UserName}"
-                                                               Classes="danmuFeedUser"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Text="{Binding DetailLine}"
-                                                               Classes="danmuFeedMeta"
-                                                               TextTrimming="CharacterEllipsis" />
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1"
-                                                           Text="{Binding Content}"
-                                                           Classes="danmuFeedContent"
-                                                           TextWrapping="Wrap" />
-                                            </Grid>
-                                        </Button>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
                         </Grid>
                     </TabItem>
 

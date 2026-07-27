@@ -31,22 +31,34 @@ public class FakeLiveDanmuSocket : ILiveDanmuSocket
         return Task.CompletedTask;
     }
 
-    private void EmitSuperChat(BilibiliSuperChatMessage message)
+    /// <summary>
+    /// 触发 SC 消息事件。
+    /// </summary>
+    public void EmitSuperChat(BilibiliSuperChatMessage message)
     {
         SuperChatReceived?.Invoke(this, message);
     }
 
-    private void EmitError(Exception exception)
+    /// <summary>
+    /// 触发连接错误事件。
+    /// </summary>
+    public void EmitError(Exception exception)
     {
         ErrorReceived?.Invoke(this, exception);
     }
 
-    private void EmitDisconnected()
+    /// <summary>
+    /// 触发断线事件。
+    /// </summary>
+    public void EmitDisconnected()
     {
         Disconnected?.Invoke(this, EventArgs.Empty);
     }
 
-    private void EmitRecovered()
+    /// <summary>
+    /// 触发恢复事件。
+    /// </summary>
+    public void EmitRecovered()
     {
         Recovered?.Invoke(this, EventArgs.Empty);
     }

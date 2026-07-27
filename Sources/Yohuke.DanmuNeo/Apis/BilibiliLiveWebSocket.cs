@@ -1,6 +1,8 @@
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.IO.Compression;
+using System.Globalization;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -17,6 +19,10 @@ namespace Yohuke.DanmuNeo.Apis;
 /// </summary>
 public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
 {
+    private const string DEFAULT_SUPER_CHAT_COLOR = "#2A60B2";
+    private const int HEARTBEAT_INTERVAL_SECONDS = 30;
+    private const int CONNECTION_MONITOR_INTERVAL_SECONDS = 5;
+    private const int CONNECTION_TIMEOUT_SECONDS = 75;
     private const string URL_GET_DANMU_INFO = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo";
     private static readonly Regex TL_PATTERN1 = new(@"^【(?<speaker>[^:：]{1,5})[:：](?<content>[^】]+)", RegexOptions.Compiled);
     private static readonly Regex TL_PATTERN2 = new(@"^(?<speaker>[^\u0592✉【][^【]{0,4})?【(?<content>[^】]+)", RegexOptions.Compiled);
@@ -79,39 +85,15 @@ public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        var hadError = false;
-
-        while (!cancellationToken.IsCancellationRequested)
+        var reconnectCoordinator = new LiveDanmuReconnectCoordinator(ConnectOnceAsync);
+        reconnectCoordinator.ErrorReceived += (_, exception) =>
         {
-            try
-            {
-                await ConnectOnceAsync(cancellationToken);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception exception)
-            {
-                StartupLog.Append($"Bilibili live websocket error roomId={roomId} exception={exception}");
-                ErrorReceived?.Invoke(this, exception);
-
-                if (!hadError)
-                {
-                    Disconnected?.Invoke(this, EventArgs.Empty);
-                }
-
-                hadError = true;
-                await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
-                continue;
-            }
-
-            if (hadError)
-            {
-                hadError = false;
-                Recovered?.Invoke(this, EventArgs.Empty);
-            }
-        }
+            StartupLog.Append($"Bilibili live websocket error roomId={roomId} exception={exception}");
+            ErrorReceived?.Invoke(this, exception);
+        };
+        reconnectCoordinator.Disconnected += (_, _) => Disconnected?.Invoke(this, EventArgs.Empty);
+        reconnectCoordinator.Recovered += (_, _) => Recovered?.Invoke(this, EventArgs.Empty);
+        await reconnectCoordinator.RunAsync(cancellationToken);
     }
 
     /// <summary>
@@ -133,7 +115,7 @@ public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
             cancellationToken: cancellationToken);
     }
 
-    private async Task ConnectOnceAsync(CancellationToken cancellationToken)
+    private async Task ConnectOnceAsync(Action onConnected, CancellationToken cancellationToken)
     {
         var danmuInfo = await GetDanmuInfoAsync(cancellationToken);
         var data = danmuInfo.Data ?? throw new InvalidOperationException("没有获取到弹幕服务器数据。");
@@ -141,40 +123,41 @@ public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
         var uri = CreateWebSocketUri(host);
 
         using var websocket = new ClientWebSocket();
+        using var connectionTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var connectionToken = connectionTokenSource.Token;
         websocket.Options.SetRequestHeader("User-Agent", DEFAULT_USER_AGENT);
         websocket.Options.SetRequestHeader("Origin", "https://live.bilibili.com");
         websocket.Options.SetRequestHeader("Cookie", cookie.ToCookieString());
-        await websocket.ConnectAsync(uri, cancellationToken);
+        await websocket.ConnectAsync(uri, connectionToken);
 
         var enterRoomPacket = CreateEnterRoomPacket(data.Token);
-        await websocket.SendAsync(enterRoomPacket, WebSocketMessageType.Binary, true, cancellationToken);
-        var heartbeatTask = SendHeartbeatAsync(websocket, cancellationToken);
+        await websocket.SendAsync(enterRoomPacket, WebSocketMessageType.Binary, true, connectionToken);
+        var lastPacketTimestamp = Stopwatch.GetTimestamp();
+        var receiveTask = ReceiveLoopAsync(
+            websocket,
+            () => Interlocked.Exchange(ref lastPacketTimestamp, Stopwatch.GetTimestamp()),
+            connectionToken);
+        var heartbeatTask = SendHeartbeatAsync(websocket, connectionToken);
+        var monitorTask = MonitorConnectionAsync(
+            () => Interlocked.Read(ref lastPacketTimestamp),
+            connectionToken);
+        onConnected();
 
         try
         {
-            while (websocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+            var completedTask = await Task.WhenAny(receiveTask, heartbeatTask, monitorTask);
+            await completedTask;
+
+            if (!connectionToken.IsCancellationRequested)
             {
-                var packet = await ReceivePacketAsync(websocket, cancellationToken);
-
-                if (packet.Length == 0)
-                {
-                    break;
-                }
-
-                AnalysePackage(packet);
+                throw new WebSocketException("直播弹幕连接已关闭。");
             }
         }
         finally
         {
-            try
-            {
-                await websocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-            }
-            catch
-            {
-            }
-
-            await heartbeatTask;
+            connectionTokenSource.Cancel();
+            websocket.Abort();
+            await IgnoreConnectionTaskErrorsAsync(receiveTask, heartbeatTask, monitorTask);
         }
     }
 
@@ -182,15 +165,65 @@ public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
     {
         while (websocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
         {
-            try
+            await websocket.SendAsync(HEARTBEAT_PACKET, WebSocketMessageType.Binary, true, cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(HEARTBEAT_INTERVAL_SECONDS), cancellationToken);
+        }
+
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            throw new WebSocketException("直播弹幕心跳已停止。");
+        }
+    }
+
+    private async Task ReceiveLoopAsync(
+        ClientWebSocket websocket,
+        Action onPacketReceived,
+        CancellationToken cancellationToken)
+    {
+        while (websocket.State == WebSocketState.Open && !cancellationToken.IsCancellationRequested)
+        {
+            var packet = await ReceivePacketAsync(websocket, cancellationToken);
+
+            if (packet.Length == 0)
             {
-                await websocket.SendAsync(HEARTBEAT_PACKET, WebSocketMessageType.Binary, true, cancellationToken);
-                await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+                throw new WebSocketException("直播弹幕服务器已关闭连接。");
             }
-            catch
+
+            onPacketReceived();
+            AnalysePackage(packet);
+        }
+
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            throw new WebSocketException("直播弹幕接收已停止。");
+        }
+    }
+
+    private static async Task MonitorConnectionAsync(
+        Func<long> getLastPacketTimestamp,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(CONNECTION_MONITOR_INTERVAL_SECONDS), cancellationToken);
+
+            if (Stopwatch.GetElapsedTime(getLastPacketTimestamp()) <= TimeSpan.FromSeconds(CONNECTION_TIMEOUT_SECONDS))
             {
-                break;
+                continue;
             }
+
+            throw new TimeoutException("直播弹幕连接长时间未收到心跳响应。");
+        }
+    }
+
+    private static async Task IgnoreConnectionTaskErrorsAsync(params Task[] tasks)
+    {
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch
+        {
         }
     }
 
@@ -321,12 +354,58 @@ public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
 
         return new()
         {
+            MessageId = ReadTokenText(data["id"]),
             RoomId = roomId,
             UserName = data["user_info"]?["uname"]?.Value<string>() ?? "",
             Price = price,
-            PriceText = string.IsNullOrWhiteSpace(priceText) ? price.ToString("0.##") : priceText,
+            PriceText = string.IsNullOrWhiteSpace(priceText)
+                ? $"￥{price.ToString("0.##", CultureInfo.InvariantCulture)}"
+                : priceText,
+            BorderColor = ReadSuperChatColor(data),
             Content = data["message"]?.Value<string>() ?? "",
             Timestamp = data["ts"]?.Value<long>() ?? DateTimeOffset.Now.ToUnixTimeSeconds()
+        };
+    }
+
+    private static string ReadSuperChatColor(JToken data)
+    {
+        string[] colorKeys =
+        [
+            "background_color_start",
+            "background_bottom_color",
+            "background_price_color"
+        ];
+
+        foreach (var colorKey in colorKeys)
+        {
+            var color = data[colorKey]?.Value<string>();
+
+            if (IsHexColor(color))
+            {
+                return color!;
+            }
+        }
+
+        return DEFAULT_SUPER_CHAT_COLOR;
+    }
+
+    private static bool IsHexColor(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value[0] != '#' || value.Length is not (7 or 9))
+        {
+            return false;
+        }
+
+        return value[1..].All(Uri.IsHexDigit);
+    }
+
+    private static string ReadTokenText(JToken? token)
+    {
+        return token switch
+        {
+            null => "",
+            JValue value => Convert.ToString(value.Value, CultureInfo.InvariantCulture) ?? "",
+            _ => token.ToString(Formatting.None)
         };
     }
 
