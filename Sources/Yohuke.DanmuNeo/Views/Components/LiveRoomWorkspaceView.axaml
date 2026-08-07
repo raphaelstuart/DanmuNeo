@@ -254,6 +254,7 @@
                                           Grid.Row="2"
                                           Margin="0,6,0,0">
                                 <ItemsControl x:Name="DanmuItemsControl"
+                                              Classes="scrollSafeContent"
                                               ItemsSource="{Binding DanmuItems}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="workspace:DanmuFeedItem">
@@ -314,7 +315,8 @@
                                 </Button>
                             </Grid>
                             <ScrollViewer Grid.Row="1">
-                                <ItemsControl ItemsSource="{Binding TranslateHistoryItems}">
+                                <ItemsControl Classes="scrollSafeContent"
+                                              ItemsSource="{Binding TranslateHistoryItems}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="workspace:DanmuFeedItem">
                                             <Border Classes="historyRecordCard">
@@ -474,7 +476,8 @@
                                 </Button>
                             </Grid>
                             <ScrollViewer Grid.Row="1">
-                                <ItemsControl ItemsSource="{Binding ForwardRules}">
+                                <ItemsControl Classes="scrollSafeContent"
+                                              ItemsSource="{Binding ForwardRules}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Border Classes="forwardRuleCard">
@@ -584,7 +587,8 @@
                             </Button>
                         </Grid>
                         <ScrollViewer Grid.Row="1">
-                            <StackPanel Spacing="14">
+                            <StackPanel Classes="scrollSafeContent"
+                                        Spacing="14">
                                 <components:LyricOnlineImportView LoadToCurrentRoom="True" />
                                 <Border BorderBrush="{DynamicResource AppBorderBrush}"
                                         BorderThickness="0,1,0,0"

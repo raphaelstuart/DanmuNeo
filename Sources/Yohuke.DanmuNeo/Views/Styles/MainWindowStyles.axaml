@@ -132,6 +132,10 @@
         <Setter Property="MinHeight" Value="32" />
     </Style>
 
+    <Style Selector="Control.scrollSafeContent">
+        <Setter Property="Margin" Value="0,0,16,0" />
+    </Style>
+
     <Style Selector="TextBox.lyricRateInput">
         <Setter Property="Margin" Value="4 0 4 0" />
         <Setter Property="MinHeight" Value="28" />
@@ -737,7 +741,7 @@
 
     <Style Selector="ListBox.lyricLineList ListBoxItem">
         <Setter Property="Padding" Value="0" />
-        <Setter Property="Margin" Value="0" />
+        <Setter Property="Margin" Value="0,0,16,0" />
         <Setter Property="MinHeight" Value="0" />
         <Setter Property="Background" Value="Transparent" />
     </Style>
@@ -827,7 +831,7 @@
 
     <Style Selector="ListBox.feedList ListBoxItem">
         <Setter Property="Padding" Value="0" />
-        <Setter Property="Margin" Value="0,0,0,2" />
+        <Setter Property="Margin" Value="0,0,16,2" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="CornerRadius" Value="6" />
     </Style>
@@ -890,7 +894,7 @@
     </Style>
 
     <Style Selector="Grid.compactDanmu ListBox.feedList ListBoxItem">
-        <Setter Property="Margin" Value="0" />
+        <Setter Property="Margin" Value="0,0,16,0" />
     </Style>
 
     <Style Selector="Grid.compactDanmu Button.scFeedButton">

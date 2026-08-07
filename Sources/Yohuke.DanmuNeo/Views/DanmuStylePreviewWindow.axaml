@@ -128,7 +128,8 @@
 
                     <ScrollViewer Grid.Row="3"
                                   Margin="0,6,0,0">
-                        <ItemsControl ItemsSource="{Binding DanmuItems}">
+                        <ItemsControl Classes="scrollSafeContent"
+                                      ItemsSource="{Binding DanmuItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate DataType="workspace:DanmuFeedItem">
                                     <Button Classes="danmuFeedButton"
@@ -172,7 +173,8 @@
                     Margin="12,0,0,0"
                     Padding="16">
                 <ScrollViewer>
-                    <StackPanel Spacing="12">
+                    <StackPanel Classes="scrollSafeContent"
+                                Spacing="12">
                         <StackPanel Spacing="3">
                             <TextBlock Text="测试数据"
                                        Classes="sectionTitle" />

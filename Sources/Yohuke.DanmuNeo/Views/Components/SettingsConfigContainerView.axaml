@@ -4,7 +4,7 @@
              x:Class="Yohuke.DanmuNeo.Views.Components.SettingsConfigContainerView"
              x:CompileBindings="False">
     <ScrollViewer>
-        <Grid>
+        <Grid Classes="scrollSafeContent">
             <components:GlobalSettingsView/>
             <components:AccountSettingsView/>
             <components:LyricLibrarySettingsView/>
