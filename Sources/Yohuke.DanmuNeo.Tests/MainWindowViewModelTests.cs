@@ -10,6 +10,22 @@ namespace Yohuke.DanmuNeo.Tests;
 public class MainWindowViewModelTests
 {
     [Fact]
+    public void CompactDanmuDisplayUpdatesSettingsAndRaisesNotification()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        service.Save(new());
+        using var viewModel = new MainWindowViewModel(service);
+        var changedProperties = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+
+        viewModel.IsCompactDanmuDisplay = true;
+
+        Assert.True(viewModel.Settings.CompactDanmuDisplay);
+        Assert.Contains(nameof(MainWindowViewModel.IsCompactDanmuDisplay), changedProperties);
+    }
+
+    [Fact]
     public async Task DeleteAccountClearsForwardRuleAccountOverride()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

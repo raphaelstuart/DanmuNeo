@@ -28,6 +28,7 @@ public class AppStateServiceTests
         Assert.Single(state.Workspaces);
         Assert.Equal("默认工作区", state.Workspaces[0].Name);
         Assert.Equal(Yohuke.DanmuNeo.Models.State.AppThemeMode.System, state.Settings.ThemeMode);
+        Assert.False(state.Settings.CompactDanmuDisplay);
         Assert.True(File.Exists(service.SettingsFilePath));
         Assert.True(File.Exists(service.AccountsFilePath));
         Assert.True(File.Exists(service.LyricLibraryFilePath));
@@ -148,6 +149,38 @@ public class AppStateServiceTests
             loaded.Settings.ShortcutBindings,
             binding => binding.ActionKey == ShortcutActionKeys.LYRIC_SEEK_BACKWARD &&
                        binding.GestureText == defaultGestureText);
+    }
+
+    [Fact]
+    public void LoadUsesNormalDanmuDisplayWhenOldSettingsFileDoesNotContainOption()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var service = new AppStateService(directory);
+        File.WriteAllText(service.SettingsFilePath, """{"SendIntervalMs":650}""");
+
+        var loaded = service.Load();
+
+        Assert.False(loaded.Settings.CompactDanmuDisplay);
+    }
+
+    [Fact]
+    public void SaveAndLoadKeepsCompactDanmuDisplay()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        var state = new AppState
+        {
+            Settings = new()
+            {
+                CompactDanmuDisplay = true
+            }
+        };
+
+        service.Save(state);
+        var loaded = service.Load();
+
+        Assert.True(loaded.Settings.CompactDanmuDisplay);
     }
 
     [Fact]

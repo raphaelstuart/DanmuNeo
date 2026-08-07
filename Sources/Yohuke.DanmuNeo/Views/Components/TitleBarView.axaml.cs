@@ -8,12 +8,39 @@ namespace Yohuke.DanmuNeo.Views.Components;
 /// </summary>
 public partial class TitleBarView : UserControl
 {
+#if DEBUG
+    private DanmuStylePreviewWindow? danmuStylePreviewWindow;
+#endif
+
     /// <summary>
     /// 初始化标题栏。
     /// </summary>
     public TitleBarView()
     {
         InitializeComponent();
+#if DEBUG
+        DebugToolsButton.IsVisible = true;
+#endif
+    }
+
+    private void DebugTools_OnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+#if DEBUG
+        if (TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            return;
+        }
+
+        if (danmuStylePreviewWindow is { IsVisible: true })
+        {
+            danmuStylePreviewWindow.Activate();
+            return;
+        }
+
+        danmuStylePreviewWindow = new();
+        danmuStylePreviewWindow.Closed += (_, _) => danmuStylePreviewWindow = null;
+        danmuStylePreviewWindow.Show(owner);
+#endif
     }
 
     private void TitleBar_OnPointerPressed(object? sender, PointerPressedEventArgs e)

@@ -1,0 +1,266 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:workspace="clr-namespace:Yohuke.DanmuNeo.Models.Workspace"
+        xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components"
+        x:Class="Yohuke.DanmuNeo.Views.DanmuStylePreviewWindow"
+        x:CompileBindings="False"
+        Width="1040"
+        Height="720"
+        MinWidth="820"
+        MinHeight="580"
+        WindowStartupLocation="CenterOwner"
+        Title="弹幕与 SC 样式测试">
+    <Grid Classes="rootSurface"
+          RowDefinitions="Auto,*">
+        <Border Classes="panel"
+                Margin="16,16,16,0"
+                Padding="14,10">
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="12">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="弹幕与 SC 样式测试"
+                               FontSize="18"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="仅 DEBUG 入口可用；拖动窗口、列分隔条和上下分隔条检查响应式布局。"
+                               Classes="muted" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                             Orientation="Horizontal"
+                             Spacing="8"
+                             VerticalAlignment="Center">
+                    <CheckBox Content="紧凑模式"
+                              IsChecked="{Binding IsCompactDanmuDisplay}"
+                              VerticalAlignment="Center" />
+                    <TextBlock Text="主题"
+                               Classes="muted"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="ThemeModeComboBox"
+                              Width="120"
+                              SelectionChanged="ThemeMode_OnSelectionChanged">
+                        <ComboBoxItem Content="跟随系统" />
+                        <ComboBoxItem Content="浅色" />
+                        <ComboBoxItem Content="深色" />
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1"
+              Margin="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="420" MinWidth="300" />
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="*" MinWidth="300" />
+            </Grid.ColumnDefinitions>
+
+            <Border Classes="panel"
+                    Padding="14">
+                <Grid Classes.compactDanmu="{Binding IsCompactDanmuDisplay}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="35*" MinHeight="110" />
+                        <RowDefinition Height="4" />
+                        <RowDefinition Height="65*" MinHeight="180" />
+                    </Grid.RowDefinitions>
+
+                    <Grid ColumnDefinitions="*,Auto"
+                          Margin="0,0,0,10">
+                        <TextBlock Text="生产样式预览"
+                                   Classes="sectionTitle" />
+                        <TextBlock Grid.Column="1"
+                                   Text="SC 35% / 弹幕 65%"
+                                   Classes="muted" />
+                    </Grid>
+
+                    <ListBox Grid.Row="1"
+                             Classes="feedList"
+                             ItemsSource="{Binding SuperChats}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="workspace:SuperChatItem">
+                                <Button Classes="scFeedButton"
+                                        HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch">
+                                    <Border Classes="scFeedCard"
+                                            BorderThickness="2">
+                                        <Border.BorderBrush>
+                                            <SolidColorBrush Color="{Binding BorderColor}" />
+                                        </Border.BorderBrush>
+                                        <Grid Classes="scFeedLayout"
+                                              RowDefinitions="Auto,Auto"
+                                              RowSpacing="5">
+                                            <Grid ColumnDefinitions="*,Auto"
+                                                  ColumnSpacing="8">
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="{Binding UserName}"
+                                                               Classes="danmuFeedUser"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding DisplayTime}"
+                                                               Classes="danmuFeedMeta" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding PriceText}"
+                                                           Classes="scFeedPrice"
+                                                           VerticalAlignment="Center">
+                                                    <TextBlock.Foreground>
+                                                        <SolidColorBrush Color="{Binding BorderColor}" />
+                                                    </TextBlock.Foreground>
+                                                </TextBlock>
+                                            </Grid>
+                                            <TextBlock Grid.Row="1"
+                                                       Text="{Binding Content}"
+                                                       Classes="danmuFeedContent regularFeedContent"
+                                                       TextWrapping="Wrap" />
+                                            <components:HoverMarqueeTextBlock Grid.Row="1"
+                                                                              Text="{Binding Content}"
+                                                                              Classes="compactFeedContent" />
+                                        </Grid>
+                                    </Border>
+                                </Button>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <GridSplitter Grid.Row="2"
+                                  Height="4"
+                                  HorizontalAlignment="Stretch"
+                                  ResizeDirection="Rows"
+                                  ResizeBehavior="PreviousAndNext" />
+
+                    <ScrollViewer Grid.Row="3"
+                                  Margin="0,6,0,0">
+                        <ItemsControl ItemsSource="{Binding DanmuItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="workspace:DanmuFeedItem">
+                                    <Button Classes="danmuFeedButton"
+                                            HorizontalAlignment="Stretch"
+                                            HorizontalContentAlignment="Stretch">
+                                        <Grid Classes="danmuFeedLayout"
+                                              ColumnDefinitions="96,*"
+                                              ColumnSpacing="10">
+                                            <StackPanel Spacing="1">
+                                                <TextBlock Text="{Binding UserName}"
+                                                           Classes="danmuFeedUser"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding DetailLine}"
+                                                           Classes="danmuFeedMeta"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Content}"
+                                                       Classes="danmuFeedContent regularFeedContent"
+                                                       TextWrapping="Wrap" />
+                                            <components:HoverMarqueeTextBlock Grid.Column="1"
+                                                                              Text="{Binding Content}"
+                                                                              Classes="compactFeedContent" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1"
+                          Width="4"
+                          Classes="workspaceSplitter"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext" />
+
+            <Border Grid.Column="2"
+                    Classes="panel"
+                    Margin="12,0,0,0"
+                    Padding="16">
+                <ScrollViewer>
+                    <StackPanel Spacing="12">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="测试数据"
+                                       Classes="sectionTitle" />
+                            <TextBlock Text="新增内容会插入列表顶部，不会连接直播间或发送消息。"
+                                       Classes="muted"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="用户名"
+                                       Classes="muted" />
+                            <TextBox Text="{Binding UserName}"
+                                     Watermark="测试用户" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="内容"
+                                       Classes="muted" />
+                            <TextBox Text="{Binding Content}"
+                                     Watermark="测试消息"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinHeight="92" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="5">
+                            <TextBlock Text="弹幕状态（可空）"
+                                       Classes="muted" />
+                            <TextBox Text="{Binding DanmuStatus}"
+                                     Watermark="例如：已转发" />
+                        </StackPanel>
+
+                        <Button Classes="primaryButton"
+                                Content="添加普通弹幕"
+                                Click="AddDanmu_OnClick" />
+
+                        <Border Classes="historyRecordCard"
+                                Margin="0,4,0,0">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="SC 设置"
+                                           FontWeight="SemiBold" />
+                                <ComboBox ItemsSource="{Binding SuperChatPresets}"
+                                          SelectedItem="{Binding SelectedSuperChatPreset}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="Auto,*"
+                                                  ColumnSpacing="8">
+                                                <Border Width="14"
+                                                        Height="14"
+                                                        CornerRadius="7"
+                                                        VerticalAlignment="Center">
+                                                    <Border.Background>
+                                                        <SolidColorBrush Color="{Binding BorderColor}" />
+                                                    </Border.Background>
+                                                </Border>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding DisplayName}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <StackPanel Spacing="5">
+                                    <TextBlock Text="边框颜色"
+                                               Classes="muted" />
+                                    <TextBox Text="{Binding SuperChatColorText}"
+                                             Watermark="#3171D2" />
+                                </StackPanel>
+                                <Button Classes="primaryButton"
+                                        Content="添加醒目留言"
+                                        Click="AddSuperChat_OnClick" />
+                            </StackPanel>
+                        </Border>
+
+                        <Grid ColumnDefinitions="*,*"
+                              ColumnSpacing="8">
+                            <Button Content="恢复默认样本"
+                                    Click="ResetSamples_OnClick" />
+                            <Button Grid.Column="1"
+                                    Content="清空列表"
+                                    Click="ClearSamples_OnClick" />
+                        </Grid>
+
+                        <TextBlock Text="换算口径：SC price 为人民币价值，当前 B 站充值比例为 1 元 = 10 电池。"
+                                   Classes="muted"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

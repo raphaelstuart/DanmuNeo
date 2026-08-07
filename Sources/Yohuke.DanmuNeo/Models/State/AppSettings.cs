@@ -81,6 +81,11 @@ public class AppSettings
     public bool AutoStartListeningWithLivePlayer { get; set; } = true;
 
     /// <summary>
+    /// 是否使用紧凑弹幕显示。
+    /// </summary>
+    public bool CompactDanmuDisplay { get; set; }
+
+    /// <summary>
     /// 屏蔽词替换规则。
     /// </summary>
     public List<ShieldReplacementRule> ShieldReplacementRules { get; set; } = [];

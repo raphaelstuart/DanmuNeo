@@ -54,6 +54,8 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <CheckBox Content="紧凑弹幕显示"
+                          IsChecked="{Binding IsCompactDanmuDisplay}" />
             </StackPanel>
         </Border>
 

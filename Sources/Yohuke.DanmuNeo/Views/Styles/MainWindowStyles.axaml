@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components">
     <Styles.Resources>
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
@@ -875,5 +876,62 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="LineHeight" Value="18" />
         <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+
+    <Style Selector="components|HoverMarqueeTextBlock.compactFeedContent">
+        <Setter Property="IsVisible" Value="False" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu Button.danmuFeedButton">
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu ListBox.feedList ListBoxItem">
+        <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu Button.scFeedButton">
+        <Setter Property="Margin" Value="0,0,0,1" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu Border.scFeedCard">
+        <Setter Property="Padding" Value="6,3" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu Grid.scFeedLayout">
+        <Setter Property="RowSpacing" Value="2" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu Grid.danmuFeedLayout">
+        <Setter Property="ColumnSpacing" Value="6" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu TextBlock.danmuFeedMeta">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu TextBlock.danmuFeedUser">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="LineHeight" Value="16" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu TextBlock.scFeedPrice">
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu TextBlock.danmuFeedContent">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="LineHeight" Value="16" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu TextBlock.regularFeedContent">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <Style Selector="Grid.compactDanmu components|HoverMarqueeTextBlock.compactFeedContent">
+        <Setter Property="IsVisible" Value="True" />
     </Style>
 </Styles>

@@ -85,6 +85,24 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     public AppSettings Settings { get; }
 
     /// <summary>
+    /// 是否使用紧凑弹幕显示。
+    /// </summary>
+    public bool IsCompactDanmuDisplay
+    {
+        get => Settings.CompactDanmuDisplay;
+        set
+        {
+            if (Settings.CompactDanmuDisplay == value)
+            {
+                return;
+            }
+
+            Settings.CompactDanmuDisplay = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
     /// 工作区列表。
     /// </summary>
     public ObservableCollection<WorkspaceViewModel> Workspaces { get; }
