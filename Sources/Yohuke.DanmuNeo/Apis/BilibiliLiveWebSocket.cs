@@ -333,8 +333,28 @@ public class BilibiliLiveWebSocket : BaseApi, ILiveDanmuSocket
             RoomId = roomId,
             Uid = info[2]?[0]?.Value<long>() ?? 0,
             UserName = info[2]?[1]?.Value<string>() ?? "",
-            Content = info[1]?.Value<string>() ?? ""
+            Content = info[1]?.Value<string>() ?? "",
+            IsEmoticon = IsProtocolEmoticon(info[0], info[1]?.Value<string>())
         };
+    }
+
+    private static bool IsProtocolEmoticon(JToken? metadata, string? content)
+    {
+        var emoticonUnique = (metadata as JContainer)?.Descendants()
+            .OfType<JProperty>()
+            .FirstOrDefault(property =>
+                string.Equals(property.Name, "emoticon_unique", StringComparison.OrdinalIgnoreCase))
+            ?.Value.Value<string>();
+
+        if (string.IsNullOrWhiteSpace(emoticonUnique) ||
+            string.IsNullOrWhiteSpace(content) ||
+            content.Contains('\r') ||
+            content.Contains('\n'))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(content.Trim(), @"^\[[^\[\]\r\n]+\]$", RegexOptions.CultureInvariant);
     }
 
     /// <summary>

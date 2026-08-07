@@ -54,8 +54,17 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <Border Classes="panel" Padding="14">
+            <StackPanel Spacing="10">
+                <TextBlock Text="弹幕设置"
+                           Classes="sectionTitle" />
                 <CheckBox Content="紧凑弹幕显示"
                           IsChecked="{Binding IsCompactDanmuDisplay}" />
+                <CheckBox Content="屏蔽表情弹幕"
+                          IsChecked="{Binding IsHideEmoticonDanmu}" />
             </StackPanel>
         </Border>
 

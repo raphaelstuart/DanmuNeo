@@ -24,4 +24,9 @@ public class BilibiliDanmuMessage
     /// 弹幕内容。
     /// </summary>
     public string Content { get; set; } = "";
+
+    /// <summary>
+    /// 是否为 B 站协议标记的单表情弹幕。
+    /// </summary>
+    public bool IsEmoticon { get; set; }
 }

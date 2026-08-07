@@ -20,7 +20,7 @@ public class DanmuSendService : IDanmuSendService
     /// <summary>
     /// 发送弹幕。
     /// </summary>
-    public async Task<bool> SendAsync(
+    public async Task<DanmuSendResult> SendAsync(
         string roomId,
         string message,
         BilibiliAccount? account,
@@ -29,11 +29,11 @@ public class DanmuSendService : IDanmuSendService
     {
         if (account is null || string.IsNullOrWhiteSpace(account.Cookie))
         {
-            Record(roomId, message, "未配置账号");
-            return false;
+            return CreateResult(roomId, message, "未配置账号", false, DateTimeOffset.UtcNow);
         }
 
         await sendLock.WaitAsync(cancellationToken);
+        var requestedAt = DateTimeOffset.UtcNow;
 
         try
         {
@@ -45,22 +45,25 @@ public class DanmuSendService : IDanmuSendService
             }
 
             var api = new BilibiliApi(account.Cookie, TimeSpan.FromSeconds(settings.TimeoutSeconds));
+            requestedAt = DateTimeOffset.UtcNow;
             var response = await api.SendDanmuAsync(long.Parse(roomId), message, cancellationToken: cancellationToken);
             lastSentAt = DateTimeOffset.Now;
 
             if (response.Code == 0)
             {
-                Record(roomId, message, "已发送");
-                return true;
+                return CreateResult(roomId, message, "接口已接受", true, requestedAt);
             }
 
-            Record(roomId, message, response.Message ?? response.Msg ?? $"发送失败：{response.Code}");
-            return false;
+            var errorMessage = response.Message ?? response.Msg ?? $"发送失败：{response.Code}";
+            return CreateResult(roomId, message, errorMessage, false, requestedAt);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {
-            Record(roomId, message, exception.Message);
-            return false;
+            return CreateResult(roomId, message, exception.Message, false, requestedAt);
         }
         finally
         {
@@ -96,16 +99,30 @@ public class DanmuSendService : IDanmuSendService
         return result;
     }
 
-    private void Record(string roomId, string message, string status)
+    private DanmuSendResult CreateResult(
+        string roomId,
+        string message,
+        string status,
+        bool isAccepted,
+        DateTimeOffset requestedAt)
     {
-        RecordCreated?.Invoke(this, new()
+        var record = new DanmuFeedItem
         {
             Time = DateTimeOffset.Now,
             UserName = roomId,
             Content = message,
             IsLocalRecord = true,
+            IsSendAccepted = isAccepted,
             Status = status
-        });
+        };
+        RecordCreated?.Invoke(this, record);
+        return new()
+        {
+            IsAccepted = isAccepted,
+            ErrorMessage = isAccepted ? "" : status,
+            RequestedAt = requestedAt,
+            Record = record
+        };
     }
 
     private static int FindCutIndex(string message, int maxLength)

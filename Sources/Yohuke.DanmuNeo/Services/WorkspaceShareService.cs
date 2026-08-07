@@ -35,7 +35,8 @@ public class WorkspaceShareService
                 RoomName = room.RoomName,
                 OwnerUid = room.OwnerUid,
                 LyricTitle = room.LyricTitle,
-                LyricText = room.LyricText
+                LyricText = room.LyricText,
+                TranslatedLyricText = room.TranslatedLyricText
             }).ToList()
         };
     }
@@ -88,7 +89,8 @@ public class WorkspaceShareService
                 AccountOverrideId = null,
                 InputDraft = "",
                 LyricTitle = room.LyricTitle,
-                LyricText = room.LyricText
+                LyricText = room.LyricText,
+                TranslatedLyricText = room.TranslatedLyricText
             }).ToList()
         };
     }

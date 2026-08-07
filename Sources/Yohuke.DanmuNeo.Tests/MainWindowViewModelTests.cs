@@ -26,6 +26,22 @@ public class MainWindowViewModelTests
     }
 
     [Fact]
+    public void HideEmoticonDanmuUpdatesSettingsAndRaisesNotification()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        service.Save(new());
+        using var viewModel = new MainWindowViewModel(service);
+        var changedProperties = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => changedProperties.Add(e.PropertyName);
+
+        viewModel.IsHideEmoticonDanmu = true;
+
+        Assert.True(viewModel.Settings.HideEmoticonDanmu);
+        Assert.Contains(nameof(MainWindowViewModel.IsHideEmoticonDanmu), changedProperties);
+    }
+
+    [Fact]
     public async Task DeleteAccountClearsForwardRuleAccountOverride()
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

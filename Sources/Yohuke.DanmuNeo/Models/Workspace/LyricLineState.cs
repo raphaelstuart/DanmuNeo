@@ -10,6 +10,7 @@ public class LyricLineState : ObservableObject
     private double timeSeconds;
     private string timeline = "";
     private string content = "";
+    private string translatedContent = "";
     private double durationSeconds;
     private double progress;
     private bool isActive;
@@ -41,6 +42,26 @@ public class LyricLineState : ObservableObject
         get => content;
         set => SetProperty(ref content, value);
     }
+
+    /// <summary>
+    /// 当前行翻译内容。
+    /// </summary>
+    public string TranslatedContent
+    {
+        get => translatedContent;
+        set
+        {
+            if (SetProperty(ref translatedContent, value))
+            {
+                OnPropertyChanged(nameof(HasTranslatedContent));
+            }
+        }
+    }
+
+    /// <summary>
+    /// 当前行是否包含翻译内容。
+    /// </summary>
+    public bool HasTranslatedContent => !string.IsNullOrWhiteSpace(TranslatedContent);
 
     /// <summary>
     /// 当前行播放时长。

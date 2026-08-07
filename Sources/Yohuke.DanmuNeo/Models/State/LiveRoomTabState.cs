@@ -56,6 +56,11 @@ public class LiveRoomTabState
     public string LyricText { get; set; } = "";
 
     /// <summary>
+    /// 当前翻译歌词文本。
+    /// </summary>
+    public string TranslatedLyricText { get; set; } = "";
+
+    /// <summary>
     /// 歌词自动播放速率。
     /// </summary>
     public double LyricPlaybackRate { get; set; } = 1.0;

@@ -91,4 +91,35 @@ public class WorkspaceShareServiceTests
         Assert.Equal("456", workspace.LiveRooms[0].RoomId);
         Assert.Equal("20002", workspace.LiveRooms[0].OwnerUid);
     }
+
+    [Fact]
+    public void CreatePackageAndWorkspacePreserveMultilingualLyrics()
+    {
+        var service = new WorkspaceShareService();
+        var sourceWorkspace = new WorkspaceState
+        {
+            Name = "双语歌词工作区",
+            LiveRooms =
+            [
+                new()
+                {
+                    RoomId = "789",
+                    RoomName = "双语歌词直播间",
+                    LyricTitle = "双语歌曲",
+                    LyricText = "[00:01]原文",
+                    TranslatedLyricText = "[00:01]翻译"
+                }
+            ]
+        };
+
+        var package = service.CreatePackage(sourceWorkspace, new());
+        var packageRoom = Assert.Single(package.Rooms);
+        var importedWorkspace = service.CreateWorkspace([], package);
+        var importedRoom = Assert.Single(importedWorkspace.LiveRooms);
+
+        Assert.Equal("[00:01]原文", packageRoom.LyricText);
+        Assert.Equal("[00:01]翻译", packageRoom.TranslatedLyricText);
+        Assert.Equal("[00:01]原文", importedRoom.LyricText);
+        Assert.Equal("[00:01]翻译", importedRoom.TranslatedLyricText);
+    }
 }

@@ -1,9 +1,11 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace Yohuke.DanmuNeo.Models.Workspace;
 
 /// <summary>
 /// 直播弹幕展示项。
 /// </summary>
-public class DanmuFeedItem
+public class DanmuFeedItem : ObservableObject
 {
     /// <summary>
     /// 发送时间。
@@ -30,10 +32,27 @@ public class DanmuFeedItem
     /// </summary>
     public bool IsLocalRecord { get; set; }
 
+    private string status = "";
+
+    /// <summary>
+    /// 是否已被 B 站接口接受。
+    /// </summary>
+    public bool IsSendAccepted { get; set; }
+
     /// <summary>
     /// 状态文本。
     /// </summary>
-    public string Status { get; set; } = "";
+    public string Status
+    {
+        get => status;
+        set
+        {
+            if (SetProperty(ref status, value))
+            {
+                OnPropertyChanged(nameof(DetailLine));
+            }
+        }
+    }
 
     /// <summary>
     /// 展示用时间。

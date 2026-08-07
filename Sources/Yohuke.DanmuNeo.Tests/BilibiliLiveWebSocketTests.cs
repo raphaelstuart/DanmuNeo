@@ -27,6 +27,76 @@ public class BilibiliLiveWebSocketTests
         Assert.Equal(42, message.Uid);
         Assert.Equal("用户A", message.UserName);
         Assert.Equal("你好", message.Content);
+        Assert.False(message.IsEmoticon);
+    }
+
+    [Fact]
+    public void ParseDanmuMessageMarksProtocolEmoticonWithSingleBracketContent()
+    {
+        var json = JObject.Parse("""
+        {
+          "cmd": "DANMU_MSG",
+          "info": [
+            [
+              { "emoticon_unique": "dog" }
+            ],
+            "[dog]",
+            [42, "用户A"]
+          ]
+        }
+        """);
+
+        var message = BilibiliLiveWebSocket.ParseDanmuMessage("100", json);
+
+        Assert.NotNull(message);
+        Assert.True(message.IsEmoticon);
+    }
+
+    [Theory]
+    [InlineData("[a][b]")]
+    [InlineData("文字[a]")]
+    [InlineData("[]")]
+    [InlineData("[a]\n")]
+    public void ParseDanmuMessageDoesNotMarkNonSingleEmoticonContent(string content)
+    {
+        var serializedContent = System.Text.Json.JsonSerializer.Serialize(content);
+        var json = JObject.Parse($$"""
+        {
+          "cmd": "DANMU_MSG",
+          "info": [
+            [
+              { "emoticon_unique": "dog" }
+            ],
+            {{serializedContent}},
+            [42, "用户A"]
+          ]
+        }
+        """);
+
+        var message = BilibiliLiveWebSocket.ParseDanmuMessage("100", json);
+
+        Assert.NotNull(message);
+        Assert.False(message.IsEmoticon);
+    }
+
+    [Fact]
+    public void ParseDanmuMessageDoesNotMarkBracketTextWithoutProtocolMetadata()
+    {
+        var json = JObject.Parse("""
+        {
+          "cmd": "DANMU_MSG",
+          "info": [
+            [],
+            "[公告]",
+            [42, "用户A"]
+          ]
+        }
+        """);
+
+        var message = BilibiliLiveWebSocket.ParseDanmuMessage("100", json);
+
+        Assert.NotNull(message);
+        Assert.False(message.IsEmoticon);
     }
 
     [Fact]

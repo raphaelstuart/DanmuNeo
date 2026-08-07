@@ -29,4 +29,9 @@ public class WorkspaceShareRoom
     /// 歌词文本。
     /// </summary>
     public string LyricText { get; set; } = "";
+
+    /// <summary>
+    /// 翻译歌词文本。
+    /// </summary>
+    public string TranslatedLyricText { get; set; } = "";
 }

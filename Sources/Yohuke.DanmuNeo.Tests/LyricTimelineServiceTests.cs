@@ -36,4 +36,41 @@ public class LyricTimelineServiceTests
 
         Assert.Equal("【♪歌词】", message);
     }
+
+    [Fact]
+    public void ParseMultilingualMergesTimedLyricsByTimestamp()
+    {
+        var service = new LyricTimelineService();
+
+        var lines = service.ParseMultilingual(
+            "[00:01.00]原文一\n[00:03.00]原文二",
+            "[00:01.00]翻译一\n[00:03.00]翻译二");
+
+        Assert.Equal(2, lines.Count);
+        Assert.Equal("原文一", lines[0].Content);
+        Assert.Equal("翻译一", lines[0].TranslatedContent);
+        Assert.Equal("翻译二", lines[1].TranslatedContent);
+    }
+
+    [Fact]
+    public void ParseMultilingualAlignsPlainLyricsByLineOrder()
+    {
+        var service = new LyricTimelineService();
+
+        var lines = service.ParseMultilingual("原文一\n原文二", "译文一\n译文二");
+
+        Assert.Equal("原文一", lines[0].Content);
+        Assert.Equal("译文一", lines[0].TranslatedContent);
+        Assert.Equal("译文二", lines[1].TranslatedContent);
+    }
+
+    [Theory]
+    [InlineData("原文", "译文", "原文 / 译文")]
+    [InlineData("原文", "", "原文")]
+    [InlineData("", "译文", "译文")]
+    [InlineData("相同", "相同", "相同")]
+    public void CreateMultilingualContentCombinesLanguageText(string content, string translated, string expected)
+    {
+        Assert.Equal(expected, LyricTimelineService.CreateMultilingualContent(content, translated));
+    }
 }

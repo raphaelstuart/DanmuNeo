@@ -86,6 +86,11 @@ public class AppSettings
     public bool CompactDanmuDisplay { get; set; }
 
     /// <summary>
+    /// 是否屏蔽仅包含表情标记的普通弹幕。
+    /// </summary>
+    public bool HideEmoticonDanmu { get; set; }
+
+    /// <summary>
     /// 屏蔽词替换规则。
     /// </summary>
     public List<ShieldReplacementRule> ShieldReplacementRules { get; set; } = [];

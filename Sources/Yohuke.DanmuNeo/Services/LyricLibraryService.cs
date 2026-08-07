@@ -39,6 +39,7 @@ public class LyricLibraryService
     /// </summary>
     public LyricLibraryItem Upsert(List<LyricLibraryItem> library, LyricLibraryItem item)
     {
+        NormalizeMultilingualLyrics(item);
         Validate(item);
 
         var now = DateTimeOffset.Now;
@@ -84,13 +85,15 @@ public class LyricLibraryService
             return CreateFromLocalXml(text, title);
         }
 
-        return new()
+        var item = new LyricLibraryItem
         {
             Title = title,
             Source = "local",
             LyricText = text,
             Tags = title
         };
+        NormalizeMultilingualLyrics(item);
+        return item;
     }
 
     /// <summary>
@@ -171,7 +174,7 @@ public class LyricLibraryService
         var type = ReadElement(root, "type");
         var lyric = ReadElement(root, "lyric");
 
-        return new()
+        var item = new LyricLibraryItem
         {
             Title = string.IsNullOrWhiteSpace(title) ? fallbackTitle : title,
             Artist = artist,
@@ -180,6 +183,38 @@ public class LyricLibraryService
             HasTranslation = type == "双语",
             LyricText = lyric
         };
+        NormalizeMultilingualLyrics(item);
+        return item;
+    }
+
+    private static void NormalizeMultilingualLyrics(LyricLibraryItem item)
+    {
+        if (!item.HasTranslation ||
+            !string.IsNullOrWhiteSpace(item.TranslatedLyricText) ||
+            string.IsNullOrWhiteSpace(item.LyricText))
+        {
+            return;
+        }
+
+        var groups = item.LyricText
+            .Replace("\r\n", "\n")
+            .Split('\n')
+            .Select(line => new
+            {
+                Line = line,
+                Timeline = TIMELINE_PATTERN.Match(line).Value
+            })
+            .Where(lineInfo => !string.IsNullOrWhiteSpace(lineInfo.Timeline))
+            .GroupBy(lineInfo => lineInfo.Timeline)
+            .ToList();
+
+        if (groups.Count == 0 || groups.Any(group => group.Count() != 2))
+        {
+            return;
+        }
+
+        item.LyricText = string.Join('\n', groups.Select(group => group.First().Line));
+        item.TranslatedLyricText = string.Join('\n', groups.Select(group => group.Skip(1).First().Line));
     }
 
     private static void ValidateLyricText(string text, string name)

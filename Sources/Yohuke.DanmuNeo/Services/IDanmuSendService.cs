@@ -16,7 +16,7 @@ public interface IDanmuSendService
     /// <summary>
     /// 发送弹幕。
     /// </summary>
-    Task<bool> SendAsync(
+    Task<DanmuSendResult> SendAsync(
         string roomId,
         string message,
         BilibiliAccount? account,

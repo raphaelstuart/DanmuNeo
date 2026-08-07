@@ -56,6 +56,12 @@ public class LyricLibraryItem
     public string TranslatedLyricText { get; set; } = "";
 
     /// <summary>
+    /// 是否可以在同传中同时显示原文和翻译。
+    /// </summary>
+    public bool HasMultilingualLyric => !string.IsNullOrWhiteSpace(LyricText) &&
+                                        !string.IsNullOrWhiteSpace(TranslatedLyricText);
+
+    /// <summary>
     /// 创建时间。
     /// </summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;

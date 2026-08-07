@@ -29,6 +29,7 @@ public class AppStateServiceTests
         Assert.Equal("默认工作区", state.Workspaces[0].Name);
         Assert.Equal(Yohuke.DanmuNeo.Models.State.AppThemeMode.System, state.Settings.ThemeMode);
         Assert.False(state.Settings.CompactDanmuDisplay);
+        Assert.False(state.Settings.HideEmoticonDanmu);
         Assert.True(File.Exists(service.SettingsFilePath));
         Assert.True(File.Exists(service.AccountsFilePath));
         Assert.True(File.Exists(service.LyricLibraryFilePath));
@@ -162,6 +163,7 @@ public class AppStateServiceTests
         var loaded = service.Load();
 
         Assert.False(loaded.Settings.CompactDanmuDisplay);
+        Assert.False(loaded.Settings.HideEmoticonDanmu);
     }
 
     [Fact]
@@ -181,6 +183,25 @@ public class AppStateServiceTests
         var loaded = service.Load();
 
         Assert.True(loaded.Settings.CompactDanmuDisplay);
+    }
+
+    [Fact]
+    public void SaveAndLoadKeepsHideEmoticonDanmu()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        var state = new AppState
+        {
+            Settings = new()
+            {
+                HideEmoticonDanmu = true
+            }
+        };
+
+        service.Save(state);
+        var loaded = service.Load();
+
+        Assert.True(loaded.Settings.HideEmoticonDanmu);
     }
 
     [Fact]

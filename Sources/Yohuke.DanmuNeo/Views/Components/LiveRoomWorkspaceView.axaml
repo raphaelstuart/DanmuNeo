@@ -125,7 +125,7 @@
                 </Grid>
 
                 <Border Grid.Row="2" Classes="translateComposer">
-                    <Grid RowDefinitions="*,Auto"
+                    <Grid RowDefinitions="*,Auto,Auto"
                           RowSpacing="8">
                         <Grid>
                             <TextBox x:Name="InputDraftTextBox"
@@ -162,6 +162,11 @@
                                 </StackPanel>
                             </Button>
                         </Grid>
+                        <TextBlock Grid.Row="2"
+                                   Text="{Binding DraftSendStatus}"
+                                   Classes="muted"
+                                   IsVisible="{Binding HasDraftSendStatus}"
+                                   TextWrapping="Wrap" />
                     </Grid>
                 </Border>
             </Grid>
@@ -430,10 +435,16 @@
                                                     <TextBlock Text="{Binding Timeline}"
                                                                Classes="muted"
                                                                VerticalAlignment="Center" />
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding Content}"
-                                                               TextWrapping="Wrap"
-                                                               VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="1"
+                                                                VerticalAlignment="Center"
+                                                                Spacing="2">
+                                                        <TextBlock Text="{Binding Content}"
+                                                                   TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding TranslatedContent}"
+                                                                   Classes="muted"
+                                                                   IsVisible="{Binding HasTranslatedContent}"
+                                                                   TextWrapping="Wrap" />
+                                                    </StackPanel>
                                                 </Grid>
                                             </Grid>
                                         </Border>

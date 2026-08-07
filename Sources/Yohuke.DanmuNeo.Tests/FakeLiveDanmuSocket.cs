@@ -21,14 +21,27 @@ public class FakeLiveDanmuSocket : ILiveDanmuSocket
 
     public BilibiliDanmuMessage? NextMessage { get; set; }
 
-    public Task StartAsync(CancellationToken cancellationToken = default)
+    public bool KeepRunning { get; set; }
+
+    public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (NextMessage is not null)
         {
             DanmuReceived?.Invoke(this, NextMessage);
         }
 
-        return Task.CompletedTask;
+        if (KeepRunning)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// 触发普通弹幕消息事件。
+    /// </summary>
+    public void EmitDanmu(BilibiliDanmuMessage message)
+    {
+        DanmuReceived?.Invoke(this, message);
     }
 
     /// <summary>

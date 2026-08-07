@@ -53,9 +53,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private DateTimeOffset lyricPlaybackStartedAt;
     private double lyricPlaybackStartPositionSeconds;
     private int lastAutoEnteredLyricIndex = -1;
+    private long draftSendOperationId;
     private readonly DanmuForwardService forwardService = new();
     private readonly LyricTimelineService lyricTimelineService = new();
     private readonly TranslateHistoryExportService translateHistoryExportService = new();
+    private readonly DanmuEchoTracker danmuEchoTracker = new();
 
     /// <summary>
     /// 初始化直播间标签页视图模型。
@@ -65,6 +67,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         State = state;
         inputDraft = state.InputDraft;
         lyricInput = state.LyricText;
+        translatedLyricInput = state.TranslatedLyricText;
         lyricTitle = state.LyricTitle;
         lyricPlaybackRate = NormalizeLyricPlaybackRate(state.LyricPlaybackRate);
         state.LyricPlaybackRate = lyricPlaybackRate;
@@ -210,7 +213,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     [ObservableProperty] private string inputDraft = "";
 
+    [ObservableProperty] private string draftSendStatus = "";
+
     [ObservableProperty] private string lyricInput = "";
+
+    [ObservableProperty] private string translatedLyricInput = "";
 
     [ObservableProperty] private string lyricTitle = "";
 
@@ -361,6 +368,17 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     public bool IsInputDraftEmpty => string.IsNullOrWhiteSpace(InputDraft);
 
     /// <summary>
+    /// 是否存在同传发送状态。
+    /// </summary>
+    public bool HasDraftSendStatus => !string.IsNullOrWhiteSpace(DraftSendStatus);
+
+    partial void OnDraftSendStatusChanged(string value)
+    {
+        _ = value;
+        OnPropertyChanged(nameof(HasDraftSendStatus));
+    }
+
+    /// <summary>
     /// 当前歌词标题展示文本。
     /// </summary>
     public string CurrentLyricTitleText => string.IsNullOrWhiteSpace(LyricTitle) ? "未选择歌词" : LyricTitle;
@@ -373,6 +391,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     partial void OnLyricInputChanged(string value)
     {
         State.LyricText = value;
+    }
+
+    partial void OnTranslatedLyricInputChanged(string value)
+    {
+        State.TranslatedLyricText = value;
     }
 
     partial void OnLyricTitleChanged(string value)
@@ -574,7 +597,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         StopAutoLyric(false);
         Lyrics.Clear();
 
-        foreach (var line in lyricTimelineService.Parse(LyricInput))
+        foreach (var line in lyricTimelineService.ParseMultilingual(LyricInput, TranslatedLyricInput))
         {
             Lyrics.Add(line);
         }
@@ -592,6 +615,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         StopAutoLyric(false);
         LyricTitle = "";
         LyricInput = "";
+        TranslatedLyricInput = "";
         Lyrics.Clear();
         ResetLyricSession();
     }
@@ -618,8 +642,41 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
         var content = ShieldReplacementService.Apply(InputDraft.Trim(), settings, false);
         var message = $"{markGroup.TranslateOpenMark}{content}{markGroup.TranslateCloseMark}";
-        await SendMessageAsync(message, account, settings);
-        InputDraft = "";
+        var operationId = Interlocked.Increment(ref draftSendOperationId);
+        DraftSendStatus = "发送中";
+        var results = await SendMessageAsync(message, account, settings);
+        var acceptedResults = results.Where(result => result.IsAccepted).ToList();
+        var failedResults = results.Where(result => !result.IsAccepted).ToList();
+
+        if (results.Count == 0)
+        {
+            DraftSendStatus = "发送失败：发送服务不可用";
+            return;
+        }
+
+        if (failedResults.Count == 0)
+        {
+            InputDraft = "";
+        }
+
+        if (acceptedResults.Count == 0)
+        {
+            DraftSendStatus = $"发送失败：{failedResults[0].ErrorMessage}";
+            return;
+        }
+
+        var uid = GetAccountUid(account);
+
+        if (!CanConfirmDanmuEcho(uid))
+        {
+            SetAcceptedRecordStatus(acceptedResults, "接口已接受，无法确认");
+            SetDraftSendStatus(operationId, failedResults.Count == 0
+                ? "接口已接受，无法确认"
+                : $"部分发送失败：{acceptedResults.Count}/{results.Count} 段接口已接受");
+            return;
+        }
+
+        _ = ConfirmDraftEchoesAsync(operationId, uid, acceptedResults, failedResults.Count);
     }
 
     /// <summary>
@@ -939,7 +996,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
 
         var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
-        var content = ShieldReplacementService.Apply(line.Content, settings, true);
+        var content = LyricTimelineService.CreateMultilingualContent(line.Content, line.TranslatedContent);
+        content = ShieldReplacementService.Apply(content, settings, true);
         var message =
             LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, content);
         await SendMessageAsync(message, account, settings, cancellationToken);
@@ -1380,7 +1438,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     public void LoadLyric(LyricLibraryItem item)
     {
         LyricTitle = item.Title;
-        LyricInput = string.IsNullOrWhiteSpace(item.TranslatedLyricText) ? item.LyricText : item.TranslatedLyricText;
+        LyricInput = item.LyricText;
+        TranslatedLyricInput = item.TranslatedLyricText;
         ApplyLyric();
     }
 
@@ -1620,7 +1679,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         return saveState?.Invoke() ?? Task.CompletedTask;
     }
 
-    private async Task SendMessageAsync(
+    private async Task<List<DanmuSendResult>> SendMessageAsync(
         string message,
         BilibiliAccount? account,
         AppSettings settings,
@@ -1628,12 +1687,93 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     {
         if (sendService is null)
         {
-            return;
+            return [];
         }
+
+        var results = new List<DanmuSendResult>();
 
         foreach (var part in sendService.SplitMessage(message, 30))
         {
-            await sendService.SendAsync(RoomId, part, account, settings, cancellationToken);
+            results.Add(await sendService.SendAsync(RoomId, part, account, settings, cancellationToken));
+        }
+
+        return results;
+    }
+
+    private async Task ConfirmDraftEchoesAsync(
+        long operationId,
+        long uid,
+        IReadOnlyList<DanmuSendResult> acceptedResults,
+        int failedCount)
+    {
+        try
+        {
+            SetAcceptedRecordStatus(acceptedResults, "接口已接受，等待弹幕流确认");
+            var confirmationTasks = acceptedResults
+                .Select(result => danmuEchoTracker.WaitAsync(
+                    uid,
+                    result.Record.Content,
+                    result.RequestedAt,
+                    TimeSpan.FromSeconds(5)))
+                .ToArray();
+            var confirmedCount = 0;
+
+            for (var index = 0; index < confirmationTasks.Length; index++)
+            {
+                var confirmed = await confirmationTasks[index];
+                var record = acceptedResults[index].Record;
+                record.Status = confirmed ? "已在弹幕流确认" : "接口已接受，未确认显示";
+
+                if (confirmed)
+                {
+                    confirmedCount++;
+                }
+            }
+
+            var status = failedCount > 0
+                ? $"部分发送失败：{acceptedResults.Count}/{acceptedResults.Count + failedCount} 段接口已接受，{confirmedCount}/{acceptedResults.Count} 段已确认"
+                : confirmedCount == acceptedResults.Count
+                    ? "已在弹幕流确认"
+                    : confirmedCount == 0
+                        ? "接口已接受，未确认显示"
+                        : $"接口已接受，{confirmedCount}/{acceptedResults.Count} 段已确认";
+            SetDraftSendStatus(operationId, status);
+        }
+        catch (Exception exception)
+        {
+            StartupLog.Append($"Danmu echo confirmation failed roomId={RoomId} exception={exception}");
+            SetAcceptedRecordStatus(acceptedResults, "接口已接受，确认失败");
+            SetDraftSendStatus(operationId, "接口已接受，确认失败");
+        }
+    }
+
+    private void SetAcceptedRecordStatus(IEnumerable<DanmuSendResult> results, string status)
+    {
+        foreach (var result in results)
+        {
+            result.Record.Status = status;
+        }
+    }
+
+    private bool CanConfirmDanmuEcho(long uid)
+    {
+        return uid > 0 && IsListening && ConnectionStatus == "监听中";
+    }
+
+    private static long GetAccountUid(BilibiliAccount? account)
+    {
+        return long.TryParse(
+            account is null ? "" : ApiCookieHelper.GetValue(account.Cookie, "DedeUserID"),
+            out var uid)
+            ? uid
+            : 0;
+    }
+
+    private void SetDraftSendStatus(long operationId, string status)
+    {
+        if (operationId == draftSendOperationId)
+        {
+            DraftSendStatus = status;
         }
     }
 
@@ -1682,17 +1822,49 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     private void OnDanmuReceived(object? sender, BilibiliDanmuMessage message)
     {
-        Dispatcher.UIThread.Post(() =>
+        ObserveDanmuEcho(message);
+
+        if (ShouldHideDanmu(message))
         {
-            DanmuItems.Insert(0, new()
-            {
-                Time = DateTimeOffset.Now,
-                UserName = message.UserName,
-                UserUid = message.Uid.ToString(),
-                Content = message.Content
-            });
-            Trim(DanmuItems, 300);
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() => AddDanmuToFeed(message));
+    }
+
+    internal void AddDanmu(BilibiliDanmuMessage message)
+    {
+        ObserveDanmuEcho(message);
+
+        if (!ShouldHideDanmu(message))
+        {
+            AddDanmuToFeed(message);
+        }
+    }
+
+    private void ObserveDanmuEcho(BilibiliDanmuMessage message)
+    {
+        if (message.Uid > 0)
+        {
+            danmuEchoTracker.Observe(message.Uid, message.Content);
+        }
+    }
+
+    private bool ShouldHideDanmu(BilibiliDanmuMessage message)
+    {
+        return getSettings?.Invoke().HideEmoticonDanmu == true && message.IsEmoticon;
+    }
+
+    private void AddDanmuToFeed(BilibiliDanmuMessage message)
+    {
+        DanmuItems.Insert(0, new()
+        {
+            Time = DateTimeOffset.Now,
+            UserName = message.UserName,
+            UserUid = message.Uid.ToString(),
+            Content = message.Content
         });
+        Trim(DanmuItems, 300);
     }
 
     private void OnSuperChatReceived(object? sender, BilibiliSuperChatMessage message)
@@ -1763,7 +1935,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             Trim(TranslateHistoryItems, 1000);
             OnPropertyChanged(nameof(HasTranslateHistory));
 
-            if (item.Status == "已发送")
+            if (item.IsSendAccepted)
             {
                 return;
             }

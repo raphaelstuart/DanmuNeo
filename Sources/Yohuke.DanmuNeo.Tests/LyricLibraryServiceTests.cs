@@ -81,4 +81,29 @@ public class LyricLibraryServiceTests
         Assert.True(item.HasTranslation);
         Assert.Contains("[00:01]歌词", item.LyricText);
     }
+
+    [Fact]
+    public async Task CreateFromLocalFileSplitsLegacyBilingualTimelinePairs()
+    {
+        var filePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".txt");
+        await File.WriteAllTextAsync(filePath, """
+        <local>
+        <name>双语歌</name>
+        <type>双语</type>
+        <lyric>
+        [00:01]原文一
+        [00:01]译文一
+        [00:02]原文二
+        [00:02]译文二
+        </lyric>
+        </local>
+        """);
+        var service = new LyricLibraryService();
+
+        var item = await service.CreateFromLocalFileAsync(filePath);
+
+        Assert.Equal("[00:01]原文一\n[00:02]原文二", item.LyricText);
+        Assert.Equal("[00:01]译文一\n[00:02]译文二", item.TranslatedLyricText);
+        Assert.True(item.HasMultilingualLyric);
+    }
 }

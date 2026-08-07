@@ -502,6 +502,7 @@ public class AppStateService
                 }
 
                 room.ForwardRules ??= [];
+                room.TranslatedLyricText ??= "";
 
                 foreach (var rule in room.ForwardRules)
                 {
@@ -548,6 +549,9 @@ public class AppStateService
             {
                 item.Source = "local";
             }
+
+            item.LyricText ??= "";
+            item.TranslatedLyricText ??= "";
         }
 
         return state;

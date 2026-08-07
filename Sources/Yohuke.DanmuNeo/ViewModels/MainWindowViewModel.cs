@@ -103,6 +103,24 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
+    /// 是否屏蔽表情弹幕。
+    /// </summary>
+    public bool IsHideEmoticonDanmu
+    {
+        get => Settings.HideEmoticonDanmu;
+        set
+        {
+            if (Settings.HideEmoticonDanmu == value)
+            {
+                return;
+            }
+
+            Settings.HideEmoticonDanmu = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
     /// 工作区列表。
     /// </summary>
     public ObservableCollection<WorkspaceViewModel> Workspaces { get; }
@@ -1368,7 +1386,9 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         var room = SelectedWorkspace?.SelectedRoom;
 
-        if (room is null || string.IsNullOrWhiteSpace(room.LyricInput))
+        if (room is null ||
+            string.IsNullOrWhiteSpace(room.LyricInput) &&
+            string.IsNullOrWhiteSpace(room.TranslatedLyricInput))
         {
             return;
         }
@@ -1381,7 +1401,9 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
                 Title = title,
                 Source = "local",
                 Tags = title,
-                LyricText = room.LyricInput
+                HasTranslation = !string.IsNullOrWhiteSpace(room.TranslatedLyricInput),
+                LyricText = room.LyricInput,
+                TranslatedLyricText = room.TranslatedLyricInput
             });
             await SaveAsync();
         }

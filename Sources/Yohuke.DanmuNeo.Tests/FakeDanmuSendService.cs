@@ -13,28 +13,48 @@ public class FakeDanmuSendService : IDanmuSendService
 
     public List<BilibiliAccount?> SentAccounts { get; } = [];
 
-    public Task<bool> SendAsync(
+    public List<DanmuFeedItem> Records { get; } = [];
+
+    public bool IsAccepted { get; set; } = true;
+
+    public string ErrorMessage { get; set; } = "测试发送失败";
+
+    public Queue<bool> AcceptanceResults { get; } = [];
+
+    public List<string>? MessageParts { get; set; }
+
+    public Task<DanmuSendResult> SendAsync(
         string roomId,
         string message,
         BilibiliAccount? account,
         AppSettings settings,
         CancellationToken cancellationToken = default)
     {
+        var isAccepted = AcceptanceResults.Count > 0 ? AcceptanceResults.Dequeue() : IsAccepted;
         SentMessages.Add(message);
         SentAccounts.Add(account);
-        RecordCreated?.Invoke(this, new()
+        var record = new DanmuFeedItem
         {
             Time = DateTimeOffset.Now,
             UserName = roomId,
             Content = message,
             IsLocalRecord = true,
-            Status = "已发送"
+            IsSendAccepted = isAccepted,
+            Status = isAccepted ? "接口已接受" : ErrorMessage
+        };
+        Records.Add(record);
+        RecordCreated?.Invoke(this, record);
+        return Task.FromResult(new DanmuSendResult
+        {
+            IsAccepted = isAccepted,
+            ErrorMessage = isAccepted ? "" : ErrorMessage,
+            RequestedAt = DateTimeOffset.UtcNow,
+            Record = record
         });
-        return Task.FromResult(true);
     }
 
     public List<string> SplitMessage(string message, int maxLength)
     {
-        return [message];
+        return MessageParts ?? [message];
     }
 }

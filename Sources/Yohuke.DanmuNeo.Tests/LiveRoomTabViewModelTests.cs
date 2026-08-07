@@ -177,6 +177,41 @@ public class LiveRoomTabViewModelTests
     }
 
     [Fact]
+    public void LoadLyricKeepsOriginalAndTranslationTogether()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState());
+        var item = new LyricLibraryItem
+        {
+            Title = "多语言歌曲",
+            LyricText = "[00:01]原文",
+            TranslatedLyricText = "[00:01]翻译"
+        };
+
+        viewModel.LoadLyric(item);
+
+        var line = Assert.Single(viewModel.Lyrics);
+        Assert.Equal("原文", line.Content);
+        Assert.Equal("翻译", line.TranslatedContent);
+        Assert.Equal("[00:01]原文", viewModel.LyricInput);
+        Assert.Equal("[00:01]翻译", viewModel.TranslatedLyricInput);
+    }
+
+    [Fact]
+    public async Task SendCurrentLyricIncludesOriginalAndTranslation()
+    {
+        var sendService = new FakeDanmuSendService();
+        var viewModel = CreateConfiguredViewModel(new AppSettings(), sendService);
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:01.00]原文";
+        viewModel.TranslatedLyricInput = "[00:01.00]翻译";
+        viewModel.ApplyLyric();
+
+        await viewModel.SendCurrentLyricAsync();
+
+        Assert.Equal(["【♪原文 / 翻译】"], sendService.SentMessages);
+    }
+
+    [Fact]
     public void LyricPlaybackRateNormalizesLegacyZero()
     {
         var state = new LiveRoomTabState
@@ -438,6 +473,159 @@ public class LiveRoomTabViewModelTests
         await viewModel.SendDraftAsync();
 
         Assert.Equal(["【狗来了】"], sendService.SentMessages);
+    }
+
+    [Fact]
+    public void HideEmoticonDanmuFiltersOnlyProtocolEmoticonMessages()
+    {
+        var viewModel = CreateConfiguredViewModel(
+            new()
+            {
+                HideEmoticonDanmu = true
+            });
+
+        viewModel.AddDanmu(new()
+        {
+            Uid = 1,
+            UserName = "表情用户",
+            Content = "[dog]",
+            IsEmoticon = true
+        });
+        viewModel.AddDanmu(new()
+        {
+            Uid = 2,
+            UserName = "文本用户",
+            Content = "[公告]"
+        });
+
+        Assert.Equal("[公告]", viewModel.DanmuItems[0].Content);
+    }
+
+    [Fact]
+    public void EnablingHideEmoticonDanmuKeepsExistingMessages()
+    {
+        var settings = new AppSettings();
+        var viewModel = CreateConfiguredViewModel(settings);
+        viewModel.AddDanmu(new()
+        {
+            Uid = 1,
+            Content = "[first]",
+            IsEmoticon = true
+        });
+        settings.HideEmoticonDanmu = true;
+        viewModel.AddDanmu(new()
+        {
+            Uid = 1,
+            Content = "[second]",
+            IsEmoticon = true
+        });
+        Assert.Single(viewModel.DanmuItems);
+        Assert.Equal("[first]", viewModel.DanmuItems[0].Content);
+    }
+
+    [Fact]
+    public void HideEmoticonDanmuDoesNotFilterSuperChat()
+    {
+        var viewModel = CreateConfiguredViewModel(
+            new()
+            {
+                HideEmoticonDanmu = true
+            });
+
+        viewModel.AddSuperChat(CreateSuperChatMessage("sc-emoticon"));
+
+        Assert.Equal("sc-emoticon", viewModel.SuperChats[0].MessageId);
+    }
+
+    [Fact]
+    public async Task SendDraftFailureKeepsInput()
+    {
+        var sendService = new FakeDanmuSendService
+        {
+            IsAccepted = false,
+            ErrorMessage = "风控拒绝"
+        };
+        var viewModel = CreateConfiguredViewModel(new(), sendService);
+        viewModel.RoomId = "100";
+        viewModel.InputDraft = "待发送";
+
+        await viewModel.SendDraftAsync();
+
+        Assert.Equal("待发送", viewModel.InputDraft);
+        Assert.Equal("发送失败：风控拒绝", viewModel.DraftSendStatus);
+    }
+
+    [Fact]
+    public async Task SendDraftApiAcceptanceClearsInputWithoutListening()
+    {
+        var sendService = new FakeDanmuSendService();
+        var account = new BilibiliAccount
+        {
+            Cookie = "DedeUserID=42"
+        };
+        var viewModel = CreateConfiguredViewModel(new(), sendService, resolveAccount: _ => account);
+        viewModel.RoomId = "100";
+        viewModel.InputDraft = "待发送";
+
+        await viewModel.SendDraftAsync();
+
+        Assert.Equal("", viewModel.InputDraft);
+        Assert.Equal("接口已接受，无法确认", viewModel.DraftSendStatus);
+        Assert.Equal("接口已接受，无法确认", Assert.Single(sendService.Records).Status);
+    }
+
+    [Fact]
+    public async Task SendDraftPartialFailureKeepsInputAndReportsAcceptedParts()
+    {
+        var sendService = new FakeDanmuSendService
+        {
+            MessageParts = ["第一段", "第二段"],
+            ErrorMessage = "第二段失败"
+        };
+        sendService.AcceptanceResults.Enqueue(true);
+        sendService.AcceptanceResults.Enqueue(false);
+        var viewModel = CreateConfiguredViewModel(new(), sendService);
+        viewModel.RoomId = "100";
+        viewModel.InputDraft = "完整同传";
+
+        await viewModel.SendDraftAsync();
+
+        Assert.Equal("完整同传", viewModel.InputDraft);
+        Assert.Equal("部分发送失败：1/2 段接口已接受", viewModel.DraftSendStatus);
+        Assert.Equal("接口已接受，无法确认", sendService.Records[0].Status);
+        Assert.Equal("第二段失败", sendService.Records[1].Status);
+    }
+
+    [Fact]
+    public async Task SendDraftEchoWithMatchingUidAndContentConfirmsDisplay()
+    {
+        var sendService = new FakeDanmuSendService();
+        var socketFactory = new FakeLiveDanmuSocketFactory();
+        socketFactory.Socket.KeepRunning = true;
+        var account = new BilibiliAccount
+        {
+            Cookie = "DedeUserID=42"
+        };
+        var viewModel = CreateConfiguredViewModel(
+            new(),
+            sendService,
+            resolveAccount: _ => account,
+            liveDanmuSocketFactory: socketFactory);
+        viewModel.RoomId = "100";
+        viewModel.InputDraft = "待发送";
+        viewModel.StartListening();
+
+        await viewModel.SendDraftAsync();
+        socketFactory.Socket.EmitDanmu(new()
+        {
+            Uid = 42,
+            UserName = "自己",
+            Content = "【待发送】"
+        });
+        await WaitForAsync(() => viewModel.DraftSendStatus == "已在弹幕流确认");
+
+        Assert.Equal("已在弹幕流确认", Assert.Single(sendService.Records).Status);
+        viewModel.StopListening();
     }
 
     [Fact]
