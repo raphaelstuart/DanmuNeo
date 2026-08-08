@@ -2,6 +2,7 @@ param(
     [string]$Configuration = "Release",
     [string]$OutputDirectory = "Artifacts/Publish",
     [string]$Version,
+    [string]$MacCodeSignIdentity = "-",
     [switch]$SkipRestore,
     [switch]$Clean
 )
@@ -17,6 +18,7 @@ $repoRoot = $PSScriptRoot
 $solutionPath = Join-Path $repoRoot "Sources/Yohuke.DanmuNeo.sln"
 $projectPath = Join-Path $repoRoot "Sources/Yohuke.DanmuNeo/Yohuke.DanmuNeo.csproj"
 $iconPath = Join-Path $repoRoot "Sources/Yohuke.DanmuNeo/Assets/favicon.ico"
+$macReadmePath = Join-Path $repoRoot "Packaging/macOS/README.txt"
 $appName = "Yohuke Danmu Neo"
 $executableName = "Yohuke.DanmuNeo"
 $bundleIdentifier = "com.yohuke.danmuneo"
@@ -269,9 +271,101 @@ function New-MacAppBundle
     }
 }
 
+function Sign-MacAppBundle
+{
+    param(
+        [string]$BundlePath,
+        [string]$Identity
+    )
+
+    Assert-CommandExists "codesign"
+    Assert-CommandExists "xattr"
+
+    & xattr -cr $BundlePath
+
+    if ($Identity -eq "-")
+    {
+        Write-Host "Signing macOS app with an ad-hoc signature..."
+        & codesign --force --deep --sign $Identity $BundlePath
+    }
+    else
+    {
+        Write-Host "Signing macOS app with identity '$Identity'..."
+        & codesign --force --deep --options runtime --timestamp --sign $Identity $BundlePath
+    }
+
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "codesign failed with exit code $LASTEXITCODE."
+    }
+
+    & codesign --verify --deep --strict --verbose=2 $BundlePath
+
+    if ($LASTEXITCODE -ne 0)
+    {
+        throw "codesign verification failed with exit code $LASTEXITCODE."
+    }
+}
+
+function New-MacDmg
+{
+    param(
+        [string]$BundlePath,
+        [string]$ReadmePath,
+        [string]$OutputPath
+    )
+
+    Assert-CommandExists "ditto"
+    Assert-CommandExists "hdiutil"
+    Assert-CommandExists "ln"
+
+    $stagingPath = Join-Path ([System.IO.Path]::GetTempPath()) "danmu-neo-dmg-$([System.Guid]::NewGuid().ToString('N'))"
+    $stagedBundlePath = Join-Path $stagingPath (Split-Path $BundlePath -Leaf)
+    $applicationsLinkPath = Join-Path $stagingPath "Applications"
+
+    New-Item -ItemType Directory -Force -Path $stagingPath | Out-Null
+
+    try
+    {
+        Write-Host "Preparing macOS DMG contents..."
+        & ditto $BundlePath $stagedBundlePath
+
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "ditto failed with exit code $LASTEXITCODE."
+        }
+
+        Copy-Item -Path $ReadmePath -Destination $stagingPath -Force
+        & ln -s "/Applications" $applicationsLinkPath
+
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "Creating the Applications link failed with exit code $LASTEXITCODE."
+        }
+
+        if (Test-Path $OutputPath)
+        {
+            Remove-Item -Force $OutputPath
+        }
+
+        Write-Host "Creating compressed macOS DMG..."
+        & hdiutil create -volname $appName -srcfolder $stagingPath -format UDZO -ov $OutputPath
+
+        if ($LASTEXITCODE -ne 0)
+        {
+            throw "hdiutil failed with exit code $LASTEXITCODE."
+        }
+    }
+    finally
+    {
+        Remove-Item -Recurse -Force $stagingPath -ErrorAction SilentlyContinue
+    }
+}
+
 Assert-PathExists $solutionPath "Solution"
 Assert-PathExists $projectPath "Project"
 Assert-PathExists $iconPath "Icon"
+Assert-PathExists $macReadmePath "macOS first-launch guide"
 
 if ($Clean -and (Test-Path $publishRoot))
 {
@@ -291,10 +385,14 @@ $winPublishPath = Join-Path $publishRoot "win-x64"
 $macRootPath = Join-Path $publishRoot "osx-arm64"
 $macPublishPath = Join-Path $macRootPath "publish"
 $macBundlePath = Join-Path $macRootPath "$appName.app"
+$macDmgPath = Join-Path $publishRoot "Yohuke-Danmu-Neo-$resolvedVersion-osx-arm64.dmg"
 
 Publish-Runtime -RuntimeIdentifier "win-x64" -OutputPath $winPublishPath -PublishVersion $resolvedVersion
 Publish-Runtime -RuntimeIdentifier "osx-arm64" -OutputPath $macPublishPath -PublishVersion $resolvedVersion
 New-MacAppBundle -PublishPath $macPublishPath -BundlePath $macBundlePath -Version $resolvedVersion
+Sign-MacAppBundle -BundlePath $macBundlePath -Identity $MacCodeSignIdentity
+New-MacDmg -BundlePath $macBundlePath -ReadmePath $macReadmePath -OutputPath $macDmgPath
 
 Write-Host "Published Windows app: $winPublishPath"
 Write-Host "Published macOS app: $macBundlePath"
+Write-Host "Published macOS DMG: $macDmgPath"

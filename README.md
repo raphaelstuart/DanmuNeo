@@ -45,6 +45,20 @@ dotnet run --project Sources/Yohuke.DanmuNeo/Yohuke.DanmuNeo.csproj
 dotnet publish Sources/Yohuke.DanmuNeo/Yohuke.DanmuNeo.csproj -c Release
 ```
 
+生成 Windows x64 发布目录、macOS ARM64 App 和 DMG：
+
+```powershell
+pwsh -NoProfile -File ./Publish.ps1 -Clean
+```
+
+DMG 默认使用 ad-hoc 签名，内含应用、`Applications` 快捷方式和中文首次打开说明。如需使用 Developer ID 证书签名，可执行：
+
+```powershell
+pwsh -NoProfile -File ./Publish.ps1 -Clean -MacCodeSignIdentity "Developer ID Application: Example Company (TEAMID)"
+```
+
+脚本不会自动提交 Apple 公证。未公证版本在其他 Mac 上首次打开时，请按 DMG 内的《首次打开说明》处理。
+
 ## 数据目录
 
 应用配置默认写入系统 ApplicationData 下的 `Yohuke.DanmuNeo` 目录。主要文件包括：
