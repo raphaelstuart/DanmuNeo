@@ -479,4 +479,32 @@ public class AppStateServiceTests
         Assert.Equal("42", rule.SenderUid);
         Assert.Equal("^【.+】$", rule.ContentPattern);
     }
+
+    [Fact]
+    public void SaveAndLoadNormalizesUnknownLyricSendMode()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var service = new AppStateService(directory);
+        var state = new AppState
+        {
+            Workspaces =
+            [
+                new()
+                {
+                    LiveRooms =
+                    [
+                        new()
+                        {
+                            LyricSendMode = (LyricSendMode)999
+                        }
+                    ]
+                }
+            ]
+        };
+
+        service.Save(state);
+        var loaded = service.Load();
+
+        Assert.Equal(LyricSendMode.Bilingual, loaded.Workspaces[0].LiveRooms[0].LyricSendMode);
+    }
 }

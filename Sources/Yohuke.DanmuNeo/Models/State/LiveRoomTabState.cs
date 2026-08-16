@@ -66,6 +66,11 @@ public class LiveRoomTabState
     public double LyricPlaybackRate { get; set; } = 1.0;
 
     /// <summary>
+    /// 歌词发送内容模式。
+    /// </summary>
+    public LyricSendMode LyricSendMode { get; set; } = LyricSendMode.Bilingual;
+
+    /// <summary>
     /// 歌词退回重播时是否避免重复发送。
     /// </summary>
     public bool PreventRepeatedLyricSend { get; set; } = true;

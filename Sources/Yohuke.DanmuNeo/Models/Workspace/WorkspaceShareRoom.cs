@@ -1,3 +1,5 @@
+using Yohuke.DanmuNeo.Models.State;
+
 namespace Yohuke.DanmuNeo.Models.Workspace;
 
 /// <summary>
@@ -34,4 +36,9 @@ public class WorkspaceShareRoom
     /// 翻译歌词文本。
     /// </summary>
     public string TranslatedLyricText { get; set; } = "";
+
+    /// <summary>
+    /// 歌词发送内容模式。
+    /// </summary>
+    public LyricSendMode LyricSendMode { get; set; } = LyricSendMode.Bilingual;
 }

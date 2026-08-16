@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.Models.Workspace;
 
 namespace Yohuke.DanmuNeo.Services;
@@ -107,6 +108,19 @@ public class LyricTimelineService
         }
 
         return $"{primary} / {translated}";
+    }
+
+    /// <summary>
+    /// 按指定模式生成要发送的歌词内容。
+    /// </summary>
+    public static string CreateContent(string content, string translatedContent, LyricSendMode mode)
+    {
+        return mode switch
+        {
+            LyricSendMode.OriginalOnly => content.Trim(),
+            LyricSendMode.TranslationOnly => translatedContent.Trim(),
+            _ => CreateMultilingualContent(content, translatedContent)
+        };
     }
 
     /// <summary>

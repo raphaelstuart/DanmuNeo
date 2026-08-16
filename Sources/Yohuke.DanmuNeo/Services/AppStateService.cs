@@ -504,6 +504,11 @@ public class AppStateService
                 room.ForwardRules ??= [];
                 room.TranslatedLyricText ??= "";
 
+                if (!Enum.IsDefined(room.LyricSendMode))
+                {
+                    room.LyricSendMode = LyricSendMode.Bilingual;
+                }
+
                 foreach (var rule in room.ForwardRules)
                 {
                     if (string.IsNullOrWhiteSpace(rule.Id))

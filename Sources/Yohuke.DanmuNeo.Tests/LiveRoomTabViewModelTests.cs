@@ -177,6 +177,32 @@ public class LiveRoomTabViewModelTests
     }
 
     [Fact]
+    public void LyricSendModeDefaultsToBilingual()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState());
+
+        Assert.Equal(LyricSendMode.Bilingual, viewModel.LyricSendMode);
+        Assert.Equal(LyricSendMode.Bilingual, viewModel.State.LyricSendMode);
+        Assert.Equal(
+            ["原文 + 翻译", "仅原文", "仅翻译"],
+            viewModel.LyricSendModeOptions.Select(option => option.DisplayName));
+    }
+
+    [Fact]
+    public void LyricSendModeNormalizesUnknownValue()
+    {
+        var state = new LiveRoomTabState
+        {
+            LyricSendMode = (LyricSendMode)999
+        };
+
+        var viewModel = new LiveRoomTabViewModel(state);
+
+        Assert.Equal(LyricSendMode.Bilingual, viewModel.LyricSendMode);
+        Assert.Equal(LyricSendMode.Bilingual, state.LyricSendMode);
+    }
+
+    [Fact]
     public void LoadLyricKeepsOriginalAndTranslationTogether()
     {
         var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState());
@@ -211,6 +237,51 @@ public class LiveRoomTabViewModelTests
         Assert.Equal(["【♪原文 / 翻译】"], sendService.SentMessages);
     }
 
+    [Theory]
+    [InlineData(LyricSendMode.OriginalOnly, "【♪原文】")]
+    [InlineData(LyricSendMode.TranslationOnly, "【♪翻译】")]
+    public async Task SendCurrentLyricUsesSelectedContentMode(LyricSendMode mode, string expected)
+    {
+        var sendService = new FakeDanmuSendService();
+        var viewModel = CreateConfiguredViewModel(
+            new AppSettings(),
+            sendService,
+            state: new()
+            {
+                LyricSendMode = mode
+            });
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:01.00]原文";
+        viewModel.TranslatedLyricInput = "[00:01.00]翻译";
+        viewModel.ApplyLyric();
+
+        await viewModel.SendCurrentLyricAsync();
+
+        Assert.Equal([expected], sendService.SentMessages);
+        Assert.True(viewModel.Lyrics[0].IsSent);
+    }
+
+    [Fact]
+    public async Task TranslationOnlySkipsLineWithoutTranslation()
+    {
+        var sendService = new FakeDanmuSendService();
+        var viewModel = CreateConfiguredViewModel(
+            new AppSettings(),
+            sendService,
+            state: new()
+            {
+                LyricSendMode = LyricSendMode.TranslationOnly
+            });
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:01.00]原文";
+        viewModel.ApplyLyric();
+
+        await viewModel.SendCurrentLyricAsync();
+
+        Assert.Empty(sendService.SentMessages);
+        Assert.False(viewModel.Lyrics[0].IsSent);
+    }
+
     [Fact]
     public void LyricPlaybackRateNormalizesLegacyZero()
     {
@@ -239,6 +310,35 @@ public class LiveRoomTabViewModelTests
 
         Assert.Equal(3.0, viewModel.LyricPlaybackRate);
         Assert.Equal(3.0, viewModel.State.LyricPlaybackRate);
+    }
+
+    [Fact]
+    public void LyricPlaybackRateButtonsAdjustByPointOneAndRespectBounds()
+    {
+        var viewModel = new LiveRoomTabViewModel(new LiveRoomTabState());
+
+        viewModel.DecreaseLyricPlaybackRate();
+
+        Assert.Equal(0.9, viewModel.LyricPlaybackRate);
+
+        viewModel.IncreaseLyricPlaybackRate();
+
+        Assert.Equal(1.0, viewModel.LyricPlaybackRate);
+        Assert.Equal(1.0, viewModel.State.LyricPlaybackRate);
+
+        viewModel.LyricPlaybackRate = 0.25;
+        viewModel.DecreaseLyricPlaybackRate();
+
+        Assert.Equal(0.25, viewModel.LyricPlaybackRate);
+
+        viewModel.IncreaseLyricPlaybackRate();
+
+        Assert.Equal(0.35, viewModel.LyricPlaybackRate);
+
+        viewModel.LyricPlaybackRate = 3.0;
+        viewModel.IncreaseLyricPlaybackRate();
+
+        Assert.Equal(3.0, viewModel.LyricPlaybackRate);
     }
 
     [Fact]
@@ -696,6 +796,48 @@ public class LiveRoomTabViewModelTests
         await autoTask;
 
         Assert.Empty(sendService.SentMessages);
+    }
+
+    [Fact]
+    public async Task ToggleAutoLyricCommandRemainsEnabledWhilePlaying()
+    {
+        var viewModel = CreateConfiguredViewModel(new AppSettings(), new FakeDanmuSendService());
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:05.00]歌词";
+        viewModel.ApplyLyric();
+        viewModel.Lyrics[0].IsSent = true;
+
+        viewModel.ToggleAutoLyricCommand.Execute(null);
+        await WaitForAsync(() => viewModel.IsLyricAutoSending);
+
+        Assert.True(viewModel.ToggleAutoLyricCommand.CanExecute(null));
+
+        viewModel.ToggleAutoLyricCommand.Execute(null);
+        await WaitForAsync(() => !viewModel.IsLyricAutoSending);
+    }
+
+    [Fact]
+    public async Task OldAutoLyricSessionCannotStopRapidlyRestartedSession()
+    {
+        var sendService = new BlockingDanmuSendService();
+        var viewModel = CreateConfiguredViewModel(new AppSettings(), sendService);
+        viewModel.RoomId = "100";
+        viewModel.LyricInput = "[00:05.00]歌词";
+        viewModel.ApplyLyric();
+
+        var firstTask = viewModel.StartAutoLyricAsync();
+        await sendService.FirstSendStarted.WaitAsync(TimeSpan.FromSeconds(1));
+
+        viewModel.StopAutoLyric();
+        var secondTask = viewModel.StartAutoLyricAsync();
+        await WaitForAsync(() => viewModel.IsLyricAutoSending);
+        sendService.ReleaseFirstSend();
+        await firstTask;
+
+        Assert.True(viewModel.IsLyricAutoSending);
+
+        viewModel.StopAutoLyric();
+        await secondTask;
     }
 
     [Fact]

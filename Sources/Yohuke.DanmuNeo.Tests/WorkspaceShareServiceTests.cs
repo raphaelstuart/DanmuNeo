@@ -107,7 +107,8 @@ public class WorkspaceShareServiceTests
                     RoomName = "双语歌词直播间",
                     LyricTitle = "双语歌曲",
                     LyricText = "[00:01]原文",
-                    TranslatedLyricText = "[00:01]翻译"
+                    TranslatedLyricText = "[00:01]翻译",
+                    LyricSendMode = LyricSendMode.TranslationOnly
                 }
             ]
         };
@@ -119,7 +120,30 @@ public class WorkspaceShareServiceTests
 
         Assert.Equal("[00:01]原文", packageRoom.LyricText);
         Assert.Equal("[00:01]翻译", packageRoom.TranslatedLyricText);
+        Assert.Equal(LyricSendMode.TranslationOnly, packageRoom.LyricSendMode);
         Assert.Equal("[00:01]原文", importedRoom.LyricText);
         Assert.Equal("[00:01]翻译", importedRoom.TranslatedLyricText);
+        Assert.Equal(LyricSendMode.TranslationOnly, importedRoom.LyricSendMode);
+    }
+
+    [Fact]
+    public void CreateWorkspaceNormalizesUnknownLyricSendMode()
+    {
+        var service = new WorkspaceShareService();
+        var package = new WorkspaceSharePackage
+        {
+            Rooms =
+            [
+                new()
+                {
+                    RoomId = "789",
+                    LyricSendMode = (LyricSendMode)999
+                }
+            ]
+        };
+
+        var workspace = service.CreateWorkspace([], package);
+
+        Assert.Equal(LyricSendMode.Bilingual, workspace.LiveRooms[0].LyricSendMode);
     }
 }

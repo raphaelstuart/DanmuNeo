@@ -22,12 +22,15 @@ namespace Yohuke.DanmuNeo.Views.Components;
 /// </summary>
 public partial class LiveRoomWorkspaceView : UserControl
 {
+    private const double DANMU_LATEST_OFFSET_THRESHOLD = 1;
+
     private LiveRoomTabViewModel? currentRoom;
     private NativeWebView? liveWebView;
     private DispatcherTimer? lyricSeekRepeatTimer;
     private Key? lyricSeekRepeatKey;
     private double lyricSeekRepeatOffsetSeconds;
     private bool isLyricSeekRepeating;
+    private bool isLyricAutoFollowEnabled = true;
 
     /// <summary>
     /// 初始化直播间工作页面。
@@ -39,6 +42,21 @@ public partial class LiveRoomWorkspaceView : UserControl
         AttachedToVisualTree += LiveRoomWorkspaceView_OnAttachedToVisualTree;
         AddHandler(KeyDownEvent, LiveRoomWorkspaceView_OnPreviewKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyUpEvent, LiveRoomWorkspaceView_OnPreviewKeyUp, RoutingStrategies.Tunnel);
+        LyricListBox.AddHandler(
+            PointerPressedEvent,
+            LyricListBox_OnPointerPressed,
+            RoutingStrategies.Tunnel,
+            true);
+        LyricListBox.AddHandler(
+            PointerWheelChangedEvent,
+            LyricListBox_OnPointerWheelChanged,
+            RoutingStrategies.Tunnel,
+            true);
+        LyricListBox.AddHandler(
+            KeyDownEvent,
+            LyricListBox_OnKeyDown,
+            RoutingStrategies.Tunnel,
+            true);
     }
 
     /// <inheritdoc/>
@@ -275,8 +293,35 @@ public partial class LiveRoomWorkspaceView : UserControl
             return;
         }
 
+        isLyricAutoFollowEnabled = true;
         room.SeekLyricLineStart(line);
         e.Handled = true;
+    }
+
+    private void LyricListBox_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        SuspendLyricAutoFollow();
+    }
+
+    private void LyricListBox_OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        SuspendLyricAutoFollow();
+    }
+
+    private void LyricListBox_OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key is Key.PageUp or Key.PageDown or Key.Home or Key.End or Key.Up or Key.Down)
+        {
+            SuspendLyricAutoFollow();
+        }
+    }
+
+    private void SuspendLyricAutoFollow()
+    {
+        if (currentRoom?.IsLyricAutoSending == true)
+        {
+            isLyricAutoFollowEnabled = false;
+        }
     }
 
     private void InsertFeedContent(LiveRoomTabViewModel room, string content)
@@ -307,6 +352,7 @@ public partial class LiveRoomWorkspaceView : UserControl
     {
         DetachDanmuItems();
         currentRoom = room;
+        isLyricAutoFollowEnabled = true;
 
         if (currentRoom is null)
         {
@@ -350,6 +396,18 @@ public partial class LiveRoomWorkspaceView : UserControl
 
         if (e.PropertyName == nameof(LiveRoomTabViewModel.ActiveLyricLine))
         {
+            if (isLyricAutoFollowEnabled)
+            {
+                Dispatcher.UIThread.Post(ScrollActiveLyricIntoView, DispatcherPriority.Background);
+            }
+
+            return;
+        }
+
+        if (e.PropertyName == nameof(LiveRoomTabViewModel.IsLyricAutoSending) &&
+            currentRoom?.IsLyricAutoSending == true)
+        {
+            isLyricAutoFollowEnabled = true;
             Dispatcher.UIThread.Post(ScrollActiveLyricIntoView, DispatcherPriority.Background);
         }
     }
@@ -511,7 +569,7 @@ public partial class LiveRoomWorkspaceView : UserControl
 
     private void ScrollActiveLyricIntoView()
     {
-        if (currentRoom?.ActiveLyricLine is null)
+        if (!isLyricAutoFollowEnabled || currentRoom?.ActiveLyricLine is null)
         {
             return;
         }
@@ -593,10 +651,28 @@ public partial class LiveRoomWorkspaceView : UserControl
 
     private void DanmuItems_OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (e.Action is NotifyCollectionChangedAction.Add or NotifyCollectionChangedAction.Reset)
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            ScrollDanmuToLatest();
+            return;
+        }
+
+        if (e.Action == NotifyCollectionChangedAction.Add &&
+            e.NewStartingIndex == 0 &&
+            DanmuScrollViewer.Offset.Y <= DANMU_LATEST_OFFSET_THRESHOLD)
         {
             ScrollDanmuToLatest();
         }
+    }
+
+    private void DanmuItemsControl_OnContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+    {
+        DanmuScrollViewer.RegisterAnchorCandidate(e.Container);
+    }
+
+    private void DanmuItemsControl_OnContainerClearing(object? sender, ContainerClearingEventArgs e)
+    {
+        DanmuScrollViewer.UnregisterAnchorCandidate(e.Container);
     }
 
     private void ScrollDanmuToLatest()

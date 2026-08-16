@@ -36,11 +36,14 @@
                     Command="{Binding #Root.SelectQQMusicLyricSourceCommand}">
                 <TextBlock Text="QQ 音乐"/>
             </Button>
-            <TextBox Grid.Column="2"
+            <TextBox x:Name="MusicLyricSearchTextBox"
+                     Grid.Column="2"
                      Watermark="搜索歌名、歌手或关键词"
                      Text="{Binding MusicLyricSearchText}"/>
             <Button Grid.Column="3"
                     Classes="primaryButton"
+                    IsDefault="{Binding #MusicLyricSearchTextBox.IsKeyboardFocusWithin}"
+                    IsEnabled="{Binding !IsMusicLyricSearching}"
                     Command="{Binding #Root.SearchMusicLyricsCommand}">
                 <StackPanel Orientation="Horizontal"
                             Spacing="6">

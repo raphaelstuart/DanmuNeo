@@ -1,3 +1,4 @@
+using Yohuke.DanmuNeo.Models.State;
 using Yohuke.DanmuNeo.Services;
 
 namespace Yohuke.DanmuNeo.Tests;
@@ -72,5 +73,14 @@ public class LyricTimelineServiceTests
     public void CreateMultilingualContentCombinesLanguageText(string content, string translated, string expected)
     {
         Assert.Equal(expected, LyricTimelineService.CreateMultilingualContent(content, translated));
+    }
+
+    [Theory]
+    [InlineData(LyricSendMode.Bilingual, "原文 / 译文")]
+    [InlineData(LyricSendMode.OriginalOnly, "原文")]
+    [InlineData(LyricSendMode.TranslationOnly, "译文")]
+    public void CreateContentUsesSelectedMode(LyricSendMode mode, string expected)
+    {
+        Assert.Equal(expected, LyricTimelineService.CreateContent(" 原文 ", " 译文 ", mode));
     }
 }

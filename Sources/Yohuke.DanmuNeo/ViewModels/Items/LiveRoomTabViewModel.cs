@@ -21,6 +21,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     private const double MIN_LYRIC_PLAYBACK_RATE = 0.25;
     private const double MAX_LYRIC_PLAYBACK_RATE = 3.0;
     private const double DEFAULT_LYRIC_PLAYBACK_RATE = 1.0;
+    private const double LYRIC_PLAYBACK_RATE_STEP = 0.1;
     private const double LYRIC_SEEK_STEP_SECONDS = 0.5;
     private const double DEFAULT_LAST_LYRIC_DURATION_SECONDS = 3.0;
     private const int LYRIC_PLAYBACK_TICK_MS = 50;
@@ -71,6 +72,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         lyricTitle = state.LyricTitle;
         lyricPlaybackRate = NormalizeLyricPlaybackRate(state.LyricPlaybackRate);
         state.LyricPlaybackRate = lyricPlaybackRate;
+        lyricSendMode = NormalizeLyricSendMode(state.LyricSendMode);
+        state.LyricSendMode = lyricSendMode;
         preventRepeatedLyricSend = state.PreventRepeatedLyricSend;
         livePlayerVolumePercent = NormalizeLivePlayerVolumePercent(state.LivePlayerVolumePercent);
         state.LivePlayerVolumePercent = livePlayerVolumePercent;
@@ -105,6 +108,16 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// 歌词行。
     /// </summary>
     public ObservableCollection<LyricLineState> Lyrics { get; } = [];
+
+    /// <summary>
+    /// 歌词发送内容模式选项。
+    /// </summary>
+    public IReadOnlyList<LyricSendModeOption> LyricSendModeOptions { get; } =
+    [
+        new(LyricSendMode.Bilingual, "原文 + 翻译"),
+        new(LyricSendMode.OriginalOnly, "仅原文"),
+        new(LyricSendMode.TranslationOnly, "仅翻译")
+    ];
 
     /// <summary>
     /// 转发规则。
@@ -223,6 +236,8 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
     [ObservableProperty] private double lyricPlaybackRate = DEFAULT_LYRIC_PLAYBACK_RATE;
 
+    [ObservableProperty] private LyricSendMode lyricSendMode = LyricSendMode.Bilingual;
+
     [ObservableProperty] private bool preventRepeatedLyricSend = true;
 
     [ObservableProperty] private string connectionStatus = "未连接";
@@ -247,6 +262,16 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// 是否未监听。
     /// </summary>
     public bool IsNotListening => !IsListening;
+
+    /// <summary>
+    /// 歌词自动发送是否已暂停。
+    /// </summary>
+    public bool IsLyricAutoSendingPaused => !IsLyricAutoSending;
+
+    /// <summary>
+    /// 歌词自动发送切换按钮提示。
+    /// </summary>
+    public string LyricAutoSendingToggleToolTip => IsLyricAutoSending ? "暂停歌词发送" : "开始歌词发送";
 
     /// <summary>
     /// 监听切换按钮文本。
@@ -310,6 +335,12 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(IsNotListening));
         OnPropertyChanged(nameof(ListenToggleText));
+    }
+
+    partial void OnIsLyricAutoSendingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsLyricAutoSendingPaused));
+        OnPropertyChanged(nameof(LyricAutoSendingToggleToolTip));
     }
 
     partial void OnIsLivePlayerVisibleChanged(bool value)
@@ -416,6 +447,19 @@ public partial class LiveRoomTabViewModel : ViewModelBase
 
         State.LyricPlaybackRate = normalizedValue;
         ResetLyricPlaybackClock(LyricPlaybackPositionSeconds);
+    }
+
+    partial void OnLyricSendModeChanged(LyricSendMode value)
+    {
+        var normalizedValue = NormalizeLyricSendMode(value);
+
+        if (normalizedValue != value)
+        {
+            LyricSendMode = normalizedValue;
+            return;
+        }
+
+        State.LyricSendMode = normalizedValue;
     }
 
     partial void OnPreventRepeatedLyricSendChanged(bool value)
@@ -764,6 +808,32 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// 将歌词播放倍率降低 0.1。
+    /// </summary>
+    [RelayCommand]
+    public void DecreaseLyricPlaybackRate()
+    {
+        AdjustLyricPlaybackRate(-LYRIC_PLAYBACK_RATE_STEP);
+    }
+
+    /// <summary>
+    /// 将歌词播放倍率提高 0.1。
+    /// </summary>
+    [RelayCommand]
+    public void IncreaseLyricPlaybackRate()
+    {
+        AdjustLyricPlaybackRate(LYRIC_PLAYBACK_RATE_STEP);
+    }
+
+    private void AdjustLyricPlaybackRate(double offset)
+    {
+        LyricPlaybackRate = Math.Round(
+            LyricPlaybackRate + offset,
+            2,
+            MidpointRounding.AwayFromZero);
+    }
+
+    /// <summary>
     /// 调整歌词播放位置。
     /// </summary>
     public void AdjustLyricPlaybackPosition(double offsetSeconds)
@@ -792,7 +862,7 @@ public partial class LiveRoomTabViewModel : ViewModelBase
     /// <summary>
     /// 开始或暂停歌词自动发送。
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(AllowConcurrentExecutions = true)]
     public async Task ToggleAutoLyricAsync()
     {
         if (IsLyricAutoSending)
@@ -826,9 +896,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
             return;
         }
 
-        lyricTokenSource = new();
+        var tokenSource = new CancellationTokenSource();
+        lyricTokenSource = tokenSource;
         IsLyricAutoSending = true;
-        await RunAutoLyricAsync(lyricTokenSource.Token);
+        await RunAutoLyricAsync(tokenSource);
     }
 
     /// <summary>
@@ -996,7 +1067,13 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
 
         var markGroup = getMarkSymbolGroup?.Invoke() ?? MarkSymbolService.CreateDefaultGroup(settings);
-        var content = LyricTimelineService.CreateMultilingualContent(line.Content, line.TranslatedContent);
+        var content = LyricTimelineService.CreateContent(line.Content, line.TranslatedContent, LyricSendMode);
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
         content = ShieldReplacementService.Apply(content, settings, true);
         var message =
             LyricTimelineService.CreateMessage(markGroup.LyricOpenMark, markGroup.LyricCloseMark, content);
@@ -1464,6 +1541,11 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         return Math.Clamp(value, MIN_LYRIC_PLAYBACK_RATE, MAX_LYRIC_PLAYBACK_RATE);
     }
 
+    private static LyricSendMode NormalizeLyricSendMode(LyricSendMode value)
+    {
+        return Enum.IsDefined(value) ? value : LyricSendMode.Bilingual;
+    }
+
     private void OnForwardRuleChanged(DanmuForwardRuleViewModel rule)
     {
         _ = HandleForwardRuleChangedAsync(rule);
@@ -1777,8 +1859,10 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
     }
 
-    private async Task RunAutoLyricAsync(CancellationToken cancellationToken)
+    private async Task RunAutoLyricAsync(CancellationTokenSource tokenSource)
     {
+        var cancellationToken = tokenSource.Token;
+
         try
         {
             ResetLyricPlaybackClock(LyricPlaybackPositionSeconds);
@@ -1804,7 +1888,13 @@ public partial class LiveRoomTabViewModel : ViewModelBase
         }
         finally
         {
-            IsLyricAutoSending = false;
+            if (ReferenceEquals(lyricTokenSource, tokenSource))
+            {
+                lyricTokenSource = null;
+                IsLyricAutoSending = false;
+            }
+
+            tokenSource.Dispose();
         }
     }
 

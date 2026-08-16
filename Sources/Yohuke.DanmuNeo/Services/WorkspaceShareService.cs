@@ -36,7 +36,8 @@ public class WorkspaceShareService
                 OwnerUid = room.OwnerUid,
                 LyricTitle = room.LyricTitle,
                 LyricText = room.LyricText,
-                TranslatedLyricText = room.TranslatedLyricText
+                TranslatedLyricText = room.TranslatedLyricText,
+                LyricSendMode = NormalizeLyricSendMode(room.LyricSendMode)
             }).ToList()
         };
     }
@@ -90,7 +91,8 @@ public class WorkspaceShareService
                 InputDraft = "",
                 LyricTitle = room.LyricTitle,
                 LyricText = room.LyricText,
-                TranslatedLyricText = room.TranslatedLyricText
+                TranslatedLyricText = room.TranslatedLyricText,
+                LyricSendMode = NormalizeLyricSendMode(room.LyricSendMode)
             }).ToList()
         };
     }
@@ -115,5 +117,10 @@ public class WorkspaceShareService
 
             index++;
         }
+    }
+
+    private static LyricSendMode NormalizeLyricSendMode(LyricSendMode value)
+    {
+        return Enum.IsDefined(value) ? value : LyricSendMode.Bilingual;
     }
 }

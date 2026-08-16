@@ -1000,6 +1000,11 @@ public partial class MainWindowViewModel : ViewModelBase, IDisposable
     /// </summary>
     public async Task SearchMusicLyricsAsync()
     {
+        if (IsMusicLyricSearching)
+        {
+            return;
+        }
+
         MusicLyricSearchResults.Clear();
 
         if (string.IsNullOrWhiteSpace(MusicLyricSearchText))
