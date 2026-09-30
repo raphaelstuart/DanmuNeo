@@ -1,0 +1,4 @@
+interface:
+  display_name: "Yohuke Danmu Neo 研发"
+  short_description: "维护 Avalonia 同传桌面应用的架构、界面、状态与发布"
+  default_prompt: "使用 $yohuke-danmu-neo-development 规划并实现 Yohuke Danmu Neo 的这项修改。"

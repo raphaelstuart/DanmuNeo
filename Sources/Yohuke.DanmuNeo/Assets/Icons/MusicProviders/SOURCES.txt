@@ -1,0 +1,14 @@
+Papirus music provider icons
+
+Upstream: https://github.com/PapirusDevelopmentTeam/papirus-icon-theme
+Revision: bf539287ef5dc18529424a02cccee76175920a6f
+License: GPL-3.0 (see Papirus.LICENSE.txt)
+
+Original files:
+https://github.com/PapirusDevelopmentTeam/papirus-icon-theme/blob/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/64x64/apps/netease-cloud-music.svg
+https://github.com/PapirusDevelopmentTeam/papirus-icon-theme/blob/bf539287ef5dc18529424a02cccee76175920a6f/Papirus/64x64/apps/qqmusic.svg
+
+The original SVG files are preserved without modification.
+Views/Styles/MusicProviderIcons.axaml contains derived Avalonia DrawingImage resources.
+All SVG shapes, colors, opacity, rounded corners, stroke styles, and nonzero fill rules are retained.
+A transparent 64 x 64 rectangle preserves the original canvas size.

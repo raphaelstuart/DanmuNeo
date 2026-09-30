@@ -1,0 +1,4 @@
+interface:
+  display_name: "Yohuke Danmu Neo · B站 API"
+  short_description: "处理 B站登录、Cookie、直播 API、弹幕与取流接入"
+  default_prompt: "使用 $yohuke-danmu-neo-bilibili-api-development 实现并验证这项 B站接口改动。"

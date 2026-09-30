@@ -617,32 +617,45 @@
                 <Border Classes="lyricPickerPanel">
                     <Grid RowDefinitions="Auto,*"
                           RowSpacing="12">
-                        <Grid ColumnDefinitions="*,Auto"
+                        <Grid ColumnDefinitions="*,Auto,Auto"
+                              RowDefinitions="Auto,Auto"
                               ColumnSpacing="8">
-                            <StackPanel>
-                                <TextBlock Text="歌词库"
-                                           Classes="sectionTitle" />
-                                <TextBlock Text="选择后会加载到当前直播间"
-                                           Classes="muted" />
-                            </StackPanel>
-                            <Button Grid.Column="1"
+                            <TextBlock Text="歌词库"
+                                       Classes="sectionTitle"
+                                       VerticalAlignment="Center" />
+                            <components:LyricLocalImportButton Grid.Column="1"
+                                                               IsCompact="True"
+                                                               LoadToCurrentRoom="True"
+                                                               VerticalAlignment="Center" />
+                            <Button Grid.Column="2"
                                     Classes="iconButton"
                                     ToolTip.Tip="关闭"
+                                    AutomationProperties.Name="关闭歌词库"
                                     Command="{Binding #Root.CloseLyricLibraryPickerCommand}">
                                 <LucideIcon Kind="X" />
                             </Button>
+                            <TextBlock Grid.Row="1"
+                                       Grid.ColumnSpan="3"
+                                       Text="选择后加载到当前直播间"
+                                       Classes="muted"
+                                       TextWrapping="Wrap"
+                                       Margin="0,4,0,0" />
                         </Grid>
-                        <ScrollViewer Grid.Row="1">
-                            <StackPanel Classes="scrollSafeContent"
-                                        Spacing="14">
-                                <components:LyricOnlineImportView LoadToCurrentRoom="True" />
-                                <Border BorderBrush="{DynamicResource AppBorderBrush}"
-                                        BorderThickness="0,1,0,0"
-                                        Padding="0,12,0,0">
-                                    <components:LyricLibraryListView />
-                                </Border>
-                            </StackPanel>
-                        </ScrollViewer>
+                        <TabControl Grid.Row="1"
+                                    Classes="lyricPickerTabs"
+                                    SelectedIndex="0">
+                            <TabItem Header="本地歌词">
+                                <components:LyricLibraryListView Margin="0,10,0,0"
+                                                                 EnableResultScrolling="True" />
+                            </TabItem>
+                            <TabItem Header="在线搜索">
+                                <components:LyricOnlineImportView Margin="0,10,0,0"
+                                                                  ShowHeader="False"
+                                                                  ShowLocalImportButton="False"
+                                                                  LoadToCurrentRoom="True"
+                                                                  EnableResultScrolling="True" />
+                            </TabItem>
+                        </TabControl>
                     </Grid>
                 </Border>
             </Border>

@@ -4,49 +4,65 @@
              x:Class="Yohuke.DanmuNeo.Views.Components.LyricLibraryListView"
              x:CompileBindings="False"
              x:Name="Root">
-    <StackPanel Spacing="10">
+    <UserControl.Styles>
+        <Style Selector="ScrollViewer.lyricLibraryResults">
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
+        </Style>
+        <Style Selector="ScrollViewer.lyricLibraryResults.scrollable">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="AllowAutoHide" Value="False"/>
+        </Style>
+    </UserControl.Styles>
+    <Grid RowDefinitions="Auto,*"
+          RowSpacing="10">
         <TextBox Watermark="搜索歌名、歌手、标签或来源"
+                 MinWidth="0"
+                 AutomationProperties.Name="本地歌词搜索关键词"
                  Text="{Binding LyricLibrarySearchText}"/>
-        <ItemsControl ItemsSource="{Binding FilteredLyricLibrary}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate DataType="state:LyricLibraryItem">
-                    <Border BorderBrush="{DynamicResource AppBorderBrush}"
-                            BorderThickness="0,0,0,1"
-                            Padding="0,8">
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto"
-                              ColumnSpacing="8">
-                            <StackPanel>
-                                <TextBlock Text="{Binding DisplayTitle}"
-                                           FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding SourceLabel}"
-                                           Classes="muted"/>
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    ToolTip.Tip="使用"
-                                    Classes="iconButton"
-                                    Command="{Binding #Root.PickLyricLibraryItemCommand}"
-                                    CommandParameter="{Binding}">
-                                <LucideIcon Kind="BookOpen"/>
-                            </Button>
-                            <Button Grid.Column="2"
-                                    ToolTip.Tip="修改"
-                                    Classes="iconButton"
-                                    IsVisible="{Binding #Root.ShowEditButton}"
-                                    Click="EditLyric_OnClick">
-                                <LucideIcon Kind="Pencil"/>
-                            </Button>
-                            <Button Grid.Column="3"
-                                    ToolTip.Tip="删除"
-                                    Classes="iconButton"
-                                    Command="{Binding #Root.DeleteLyricLibraryItemCommand}"
-                                    CommandParameter="{Binding}">
-                                <LucideIcon Kind="Trash2"/>
-                            </Button>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </StackPanel>
+        <ScrollViewer Grid.Row="1"
+                      Classes="lyricLibraryResults"
+                      Classes.scrollable="{Binding #Root.EnableResultScrolling}">
+            <ItemsControl ItemsSource="{Binding FilteredLyricLibrary}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="state:LyricLibraryItem">
+                        <Border BorderBrush="{DynamicResource AppBorderBrush}"
+                                BorderThickness="0,0,0,1"
+                                Padding="0,8">
+                            <Grid ColumnDefinitions="*,Auto,Auto"
+                                  ColumnSpacing="8">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DisplayTitle}"
+                                               FontWeight="SemiBold"
+                                               ToolTip.Tip="{Binding DisplayTitle}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding SourceLabel}"
+                                               Classes="muted"
+                                               ToolTip.Tip="{Binding SourceLabel}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        ToolTip.Tip="使用歌词"
+                                        AutomationProperties.Name="使用歌词"
+                                        Classes="iconButton"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding #Root.PickLyricLibraryItemCommand}"
+                                        CommandParameter="{Binding}">
+                                    <LucideIcon Kind="BookOpen"/>
+                                </Button>
+                                <Button Grid.Column="2"
+                                        ToolTip.Tip="更多操作"
+                                        AutomationProperties.Name="更多歌词操作"
+                                        Classes="iconButton"
+                                        VerticalAlignment="Center"
+                                        Click="MoreLyric_OnClick">
+                                    <LucideIcon Kind="Ellipsis"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

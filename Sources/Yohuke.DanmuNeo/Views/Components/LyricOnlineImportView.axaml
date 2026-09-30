@@ -1,91 +1,152 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:state="clr-namespace:Yohuke.DanmuNeo.Models.State"
+             xmlns:components="clr-namespace:Yohuke.DanmuNeo.Views.Components"
              x:Class="Yohuke.DanmuNeo.Views.Components.LyricOnlineImportView"
              x:CompileBindings="False"
              x:Name="Root">
-    <StackPanel Spacing="12">
-        <Grid ColumnDefinitions="*,Auto"
-              ColumnSpacing="8">
-            <StackPanel>
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://Yohuke.DanmuNeo/Views/Styles/MusicProviderIcons.axaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="Button.musicProviderButton">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinWidth" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style Selector="Button.musicProviderButton:pointerover">
+            <Setter Property="Background" Value="{DynamicResource AppSidebarHoverBrush}"/>
+        </Style>
+        <Style Selector="Button.musicProviderButton.selected">
+            <Setter Property="Background" Value="{DynamicResource AppSidebarSelectedBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppPrimaryBrush}"/>
+        </Style>
+        <Style Selector="Button.lyricSearchButton">
+            <Setter Property="Width" Value="74"/>
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+        <Style Selector="ScrollViewer.musicLyricResults">
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
+        </Style>
+        <Style Selector="ScrollViewer.musicLyricResults.scrollable">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="AllowAutoHide" Value="False"/>
+        </Style>
+    </UserControl.Styles>
+    <Grid RowDefinitions="Auto,*"
+          RowSpacing="12">
+        <StackPanel Spacing="12">
+            <StackPanel Spacing="4"
+                        IsVisible="{Binding #Root.ShowHeader}">
                 <TextBlock Text="歌词导入"
                            Classes="sectionTitle"/>
                 <TextBlock Text="可从本地文件导入，也可以搜索网易云或 QQ 音乐。"
-                           Classes="muted"/>
+                           Classes="muted"
+                           TextWrapping="Wrap"/>
             </StackPanel>
-            <Button Grid.Column="1"
-                    Click="ImportLocalLyricFile_OnClick">
-                <StackPanel Orientation="Horizontal"
-                            Spacing="6">
-                    <LucideIcon Kind="FileInput"/>
-                    <TextBlock Text="导入本地歌词"/>
-                </StackPanel>
-            </Button>
-        </Grid>
+            <components:LyricLocalImportButton HorizontalAlignment="Left"
+                                               IsVisible="{Binding #Root.ShowLocalImportButton}"
+                                               LoadToCurrentRoom="{Binding #Root.LoadToCurrentRoom}"/>
 
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto"
-              ColumnSpacing="8">
-            <Button Classes="sourceSegmentButton"
-                    Classes.selected="{Binding IsNetEaseMusicLyricSource}"
-                    Command="{Binding #Root.SelectNetEaseMusicLyricSourceCommand}">
-                <TextBlock Text="网易云"/>
-            </Button>
-            <Button Grid.Column="1"
-                    Classes="sourceSegmentButton"
-                    Classes.selected="{Binding IsQQMusicLyricSource}"
-                    Command="{Binding #Root.SelectQQMusicLyricSourceCommand}">
-                <TextBlock Text="QQ 音乐"/>
-            </Button>
-            <TextBox x:Name="MusicLyricSearchTextBox"
-                     Grid.Column="2"
-                     Watermark="搜索歌名、歌手或关键词"
-                     Text="{Binding MusicLyricSearchText}"/>
-            <Button Grid.Column="3"
-                    Classes="primaryButton"
-                    IsDefault="{Binding #MusicLyricSearchTextBox.IsKeyboardFocusWithin}"
-                    IsEnabled="{Binding !IsMusicLyricSearching}"
-                    Command="{Binding #Root.SearchMusicLyricsCommand}">
-                <StackPanel Orientation="Horizontal"
-                            Spacing="6">
-                    <LucideIcon Kind="Search"/>
-                    <TextBlock Text="搜索"/>
-                </StackPanel>
-            </Button>
-        </Grid>
+            <StackPanel Orientation="Horizontal"
+                        Spacing="8">
+                <Button Classes="musicProviderButton"
+                        Classes.selected="{Binding IsNetEaseMusicLyricSource}"
+                        ToolTip.Tip="网易云音乐"
+                        AutomationProperties.Name="网易云音乐"
+                        Command="{Binding #Root.SelectNetEaseMusicLyricSourceCommand}">
+                    <Image Width="24"
+                           Height="24"
+                           Source="{StaticResource NetEaseMusicIcon}"/>
+                </Button>
+                <Button Classes="musicProviderButton"
+                        Classes.selected="{Binding IsQQMusicLyricSource}"
+                        ToolTip.Tip="QQ 音乐"
+                        AutomationProperties.Name="QQ 音乐"
+                        Command="{Binding #Root.SelectQQMusicLyricSourceCommand}">
+                    <Image Width="24"
+                           Height="24"
+                           Source="{StaticResource QQMusicIcon}"/>
+                </Button>
+            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto"
+                  ColumnSpacing="8">
+                <TextBox x:Name="MusicLyricSearchTextBox"
+                         MinWidth="0"
+                         MinHeight="36"
+                         Watermark="搜索歌名或歌手"
+                         AutomationProperties.Name="在线歌词搜索关键词"
+                         Text="{Binding MusicLyricSearchText}"
+                         KeyDown="MusicLyricSearch_OnKeyDown"/>
+                <Button Grid.Column="1"
+                        Classes="primaryButton lyricSearchButton"
+                        AutomationProperties.Name="搜索在线歌词"
+                        IsEnabled="{Binding !IsMusicLyricSearching}"
+                        Command="{Binding #Root.SearchMusicLyricsCommand}">
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="6">
+                        <LucideIcon Kind="Search"/>
+                        <TextBlock Text="搜索"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
 
-        <TextBlock Text="正在搜索..."
-                   Classes="muted"
-                   IsVisible="{Binding IsMusicLyricSearching}"/>
-
-        <ItemsControl ItemsSource="{Binding MusicLyricSearchResults}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate DataType="state:MusicLyricSearchResult">
-                    <Border BorderBrush="{DynamicResource AppBorderBrush}"
-                            BorderThickness="0,0,0,1"
-                            Padding="0,8">
-                        <Grid ColumnDefinitions="*,Auto"
-                              ColumnSpacing="8">
-                            <StackPanel>
-                                <TextBlock Text="{Binding DisplayTitle}"
-                                           FontWeight="SemiBold"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding Album}"
-                                           Classes="muted"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding SourceLabel}"
-                                           Classes="muted"/>
-                            </StackPanel>
-                            <Button Grid.Column="1"
-                                    Classes="iconButton"
-                                    ToolTip.Tip="导入歌词"
-                                    Command="{Binding #Root.ImportMusicLyricCommand}"
-                                    CommandParameter="{Binding}">
-                                <LucideIcon Kind="Download"/>
-                            </Button>
-                        </Grid>
-                    </Border>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-    </StackPanel>
+            <TextBlock Text="正在搜索..."
+                       Classes="muted"
+                       IsVisible="{Binding IsMusicLyricSearching}"/>
+        </StackPanel>
+        <ScrollViewer Grid.Row="1"
+                      Classes="musicLyricResults"
+                      Classes.scrollable="{Binding #Root.EnableResultScrolling}">
+            <ItemsControl ItemsSource="{Binding MusicLyricSearchResults}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="state:MusicLyricSearchResult">
+                        <Border BorderBrush="{DynamicResource AppBorderBrush}"
+                                BorderThickness="0,0,0,1"
+                                Padding="0,8">
+                            <Grid ColumnDefinitions="*,Auto"
+                                  ColumnSpacing="8">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DisplayTitle}"
+                                               FontWeight="SemiBold"
+                                               ToolTip.Tip="{Binding DisplayTitle}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Album}"
+                                               Classes="muted"
+                                               ToolTip.Tip="{Binding Album}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding SourceLabel}"
+                                               Classes="muted"
+                                               ToolTip.Tip="{Binding SourceLabel}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Classes="iconButton"
+                                        ToolTip.Tip="导入歌词"
+                                        AutomationProperties.Name="导入在线歌词"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding #Root.ImportMusicLyricCommand}"
+                                        CommandParameter="{Binding}">
+                                    <LucideIcon Kind="Download"/>
+                                </Button>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

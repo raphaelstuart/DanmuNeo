@@ -14,10 +14,16 @@ namespace Yohuke.DanmuNeo.Views.Components;
 public partial class LyricLibraryListView : UserControl
 {
     /// <summary>
-    /// 是否显示修改按钮。
+    /// 是否显示修改操作。
     /// </summary>
     public static readonly StyledProperty<bool> ShowEditButtonProperty =
         AvaloniaProperty.Register<LyricLibraryListView, bool>(nameof(ShowEditButton), true);
+
+    /// <summary>
+    /// 是否在控件内部滚动歌词列表。
+    /// </summary>
+    public static readonly StyledProperty<bool> EnableResultScrollingProperty =
+        AvaloniaProperty.Register<LyricLibraryListView, bool>(nameof(EnableResultScrolling));
 
     /// <summary>
     /// 初始化歌词库列表控件。
@@ -28,12 +34,21 @@ public partial class LyricLibraryListView : UserControl
     }
 
     /// <summary>
-    /// 是否显示修改按钮。
+    /// 是否显示修改操作。
     /// </summary>
     public bool ShowEditButton
     {
         get => GetValue(ShowEditButtonProperty);
         set => SetValue(ShowEditButtonProperty, value);
+    }
+
+    /// <summary>
+    /// 是否在控件内部滚动歌词列表。
+    /// </summary>
+    public bool EnableResultScrolling
+    {
+        get => GetValue(EnableResultScrollingProperty);
+        set => SetValue(EnableResultScrollingProperty, value);
     }
 
     [RelayCommand]
@@ -54,9 +69,39 @@ public partial class LyricLibraryListView : UserControl
         }
     }
 
-    private async void EditLyric_OnClick(object? sender, RoutedEventArgs e)
+    private void MoreLyric_OnClick(object? sender, RoutedEventArgs e)
     {
-        if ((sender as Control)?.DataContext is not LyricLibraryItem item ||
+        if (sender is not Button { DataContext: LyricLibraryItem item } button)
+        {
+            return;
+        }
+
+        var menu = new ContextMenu
+        {
+            ItemsSource = new MenuItem[]
+            {
+                new()
+                {
+                    Header = "修改",
+                    IsVisible = ShowEditButton,
+                    Command = EditLyricCommand,
+                    CommandParameter = item
+                },
+                new()
+                {
+                    Header = "删除",
+                    Command = DeleteLyricLibraryItemCommand,
+                    CommandParameter = item
+                }
+            }
+        };
+        menu.Open(button);
+    }
+
+    [RelayCommand]
+    private async Task EditLyricAsync(LyricLibraryItem? item)
+    {
+        if (item is null ||
             TopLevel.GetTopLevel(this) is not Window owner ||
             owner.DataContext is not MainWindowViewModel viewModel)
         {

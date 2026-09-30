@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Yohuke.DanmuNeo.Views.Components.LyricLocalImportButton"
+             x:CompileBindings="False"
+             x:Name="Root">
+    <Button Classes.iconButton="{Binding #Root.IsCompact}"
+            ToolTip.Tip="导入本地歌词"
+            AutomationProperties.Name="导入本地歌词"
+            Click="ImportLocalLyricFile_OnClick">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="6">
+            <LucideIcon Kind="FileInput"/>
+            <TextBlock Text="导入本地歌词"
+                       IsVisible="{Binding !IsCompact, ElementName=Root}"/>
+        </StackPanel>
+    </Button>
+</UserControl>

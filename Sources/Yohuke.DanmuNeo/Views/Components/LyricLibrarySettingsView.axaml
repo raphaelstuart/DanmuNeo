@@ -21,7 +21,8 @@
                         <TextBlock Text="本地歌词库"
                                    Classes="sectionTitle"/>
                         <TextBlock Text="本地导入和音乐 API 拉取过的歌词都会沉淀到这里。"
-                                   Classes="muted"/>
+                                   Classes="muted"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
                     <Button Grid.Column="1"
                             Command="{Binding #Root.SaveCurrentLyricToLibraryCommand}">
